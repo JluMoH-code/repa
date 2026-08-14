@@ -12,13 +12,13 @@ class HomeController extends Controller
         $categories = Category::query()->orderBy('sort_order')->orderBy('name')->get();
 
         $bestsellers = Product::query()->visible()->where('is_bestseller', true)
-            ->with('images')->latest()->limit(12)->get();
+            ->with(['images', 'variants'])->latest()->limit(12)->get();
 
         $newArrivals = Product::query()->visible()
-            ->with('images')->latest()->limit(12)->get();
+            ->with(['images', 'variants'])->latest()->limit(12)->get();
 
         $recommended = Product::query()->visible()->where('is_recommended', true)
-            ->with('images')->latest()->limit(12)->get();
+            ->with(['images', 'variants'])->latest()->limit(12)->get();
 
         $slides = [
             [

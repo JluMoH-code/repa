@@ -15,7 +15,7 @@ class ProductController extends Controller
             abort(404);
         }
 
-        $product->load(['images', 'category', 'manufacturer']);
+        $product->load(['images', 'category', 'manufacturer', 'variants']);
 
         $footerCategories = Category::query()
             ->whereNull('parent_id')

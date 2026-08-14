@@ -2,35 +2,86 @@
 
 @php
     $image = $product->images->firstWhere('is_main', true) ?? $product->images->first();
+    $variants = $product->relationLoaded('variants') ? $product->variants : collect();
+    $hasVariants = $variants->isNotEmpty();
+    $firstVariant = $variants->first();
+    $basePrice = $hasVariants ? $firstVariant->price : $product->price;
+    $available = $hasVariants ? $variants->contains('in_stock', true) : $product->in_stock;
 @endphp
 
-<div class="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md">
-    <a href="{{ route('products.show', $product) }}" class="mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-slate-50">
+<div
+    x-data="{
+        price: {{ $basePrice }},
+        available: {{ $available ? 'true' : 'false' }},
+        @if ($hasVariants)
+        setVariant(id) {
+            const variants = {{ Illuminate\Support\Js::from($variants->map(fn ($v) => ['id' => $v->id, 'price' => $v->price, 'in_stock' => $v->in_stock])) }};
+            const v = variants.find(v => v.id == id);
+            if (v) { this.price = v.price; this.available = v.in_stock; }
+        },
+        @endif
+    }"
+    class="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md"
+>
+    <a href="{{ route('products.show', $product) }}" class="relative mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-slate-50">
         @if ($image)
             <img src="{{ Storage::disk('public')->url($image->path) }}" alt="{{ $product->name }}" class="size-full object-cover">
         @else
             <span class="text-xs text-slate-400">Нет фото</span>
         @endif
+
+        <span
+            class="absolute top-2 left-2 rounded-full px-2 py-0.5 text-[11px] font-medium"
+            :class="available ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'"
+            x-text="available ? 'В наличии' : 'Нет в наличии'"
+        ></span>
     </a>
 
     <a href="{{ route('products.show', $product) }}" class="line-clamp-2 text-sm font-medium text-slate-800 hover:text-brand-700">
         {{ $product->name }}
     </a>
 
+    @if ($product->rating)
+        <div class="mt-1 flex items-center gap-0.5">
+            @for ($i = 1; $i <= 5; $i++)
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" class="size-3.5 {{ $i <= round($product->rating) ? 'fill-accent-500' : 'fill-slate-200' }}">
+                    <path d="M10 1.5l2.6 5.27 5.82.85-4.21 4.1 1 5.8L10 14.9l-5.21 2.62 1-5.8-4.21-4.1 5.82-.85L10 1.5z" />
+                </svg>
+            @endfor
+            <span class="ml-1 text-xs text-slate-400">{{ number_format($product->rating, 1) }}</span>
+        </div>
+    @endif
+
     <div class="mt-auto pt-3">
+        @if ($hasVariants)
+            <select
+                class="mb-2 w-full rounded-md border border-slate-300 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
+                @change="setVariant($event.target.value)"
+            >
+                @foreach ($variants as $variant)
+                    <option value="{{ $variant->id }}" @disabled(! $variant->in_stock)>
+                        {{ $variant->label }}{{ $variant->in_stock ? '' : ' (нет в наличии)' }}
+                    </option>
+                @endforeach
+            </select>
+        @endif
+
         <div class="flex items-baseline gap-2">
-            <span class="text-lg font-bold text-slate-900">
-                {{ number_format($product->price / 100, 0, ',', ' ') }} ₽
-            </span>
-            @if ($product->old_price)
+            <span class="text-lg font-bold text-slate-900" x-text="new Intl.NumberFormat('ru-RU').format(Math.round(price / 100)) + ' ₽'"></span>
+            @if (! $hasVariants && $product->old_price)
                 <span class="text-sm text-slate-400 line-through">
                     {{ number_format($product->old_price / 100, 0, ',', ' ') }} ₽
                 </span>
             @endif
         </div>
 
-        <button type="button" class="mt-2 w-full rounded-md bg-slate-100 py-2 text-sm font-medium text-slate-700 hover:bg-accent-500 hover:text-white">
-            Купить
+        <button
+            type="button"
+            class="mt-2 w-full rounded-md py-2 text-sm font-medium transition-colors"
+            :class="available ? 'bg-slate-100 text-slate-700 hover:bg-accent-500 hover:text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'"
+            :disabled="! available"
+        >
+            <span x-text="available ? 'Купить' : 'Нет в наличии'"></span>
         </button>
     </div>
 </div>

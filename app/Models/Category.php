@@ -45,6 +45,11 @@ class Category extends Model
             ->doNotGenerateSlugsOnUpdate();
     }
 
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
     protected static function booted(): void
     {
         static::deleting(function (self $category) {
@@ -69,6 +74,22 @@ class Category extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function filterGroups(): HasMany
+    {
+        return $this->hasMany(FilterGroup::class)->orderBy('sort_order');
+    }
+
+    /**
+     * ID этой категории и всех её прямых подкатегорий — используется, чтобы
+     * собрать товары "по всей категории" (кнопка "Все" на странице типа 1).
+     *
+     * @return array<int, int>
+     */
+    public function selfAndChildrenIds(): array
+    {
+        return $this->children->pluck('id')->push($this->id)->all();
     }
 
     /**

@@ -47,6 +47,8 @@ class Product extends Model
         'is_discountable',
         'is_bestseller',
         'is_recommended',
+        'in_stock',
+        'rating',
         'culture',
         'ripening',
         'growing_place',
@@ -71,6 +73,8 @@ class Product extends Model
             'is_bestseller' => 'boolean',
             'is_recommended' => 'boolean',
             'is_hybrid' => 'boolean',
+            'in_stock' => 'boolean',
+            'rating' => 'float',
             'attributes' => 'array',
         ];
     }
@@ -131,6 +135,16 @@ class Product extends Model
     public function mainImage(): HasMany
     {
         return $this->images()->where('is_main', true);
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(ProductVariant::class)->orderBy('sort_order');
+    }
+
+    public function filterValues(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(FilterValue::class, 'filter_value_product');
     }
 
     /**

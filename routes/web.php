@@ -9,6 +9,10 @@ Route::get('/', [HomeController::class, 'index'])->name('storefront');
 // Страница товара
 Route::get('/product/{product}', [App\Http\Controllers\ProductController::class, 'show'])->name('products.show');
 
+// Каталог: одна точка входа, тип страницы (выбор подкатегории / список товаров)
+// решается контроллером по наличию подкатегорий у категории.
+Route::get('/catalog/{category}', [App\Http\Controllers\CatalogController::class, 'show'])->name('catalog.show');
+
 // Демо-страница карточки товара (СЗР) — статичные данные, см. комментарий в контроллере.
 Route::get('/demo/product', [DemoProductPageController::class, 'show'])->name('demo.product');
 
