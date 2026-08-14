@@ -1,0 +1,38 @@
+/*
+ * source(none) отключает автоматический обход ВСЕГО проекта в поисках классов
+ * (по умолчанию Tailwind v4 сканирует весь корень, включая .git, storage,
+ * bootstrap/cache, tests и т.д. — на bind-mount с Windows такой полный обход
+ * дерева директорий занимает секунды из-за моста NTFS↔WSL2). Вместо этого
+ * явно перечисляем только то, что реально может содержать классы.
+ */
+@import 'tailwindcss' source(none);
+
+@source '../views';
+@source '../js';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@theme {
+    --font-sans: Inter, Roboto, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-brand-50: #f0fdf4;
+    --color-brand-100: #dcfce7;
+    --color-brand-400: #4ade80;
+    --color-brand-500: #22c55e;
+    --color-brand-600: #16a34a;
+    --color-brand-700: #15803d;
+
+    --color-accent-500: #f97316;
+    --color-accent-600: #ea580c;
+}
+
+@layer utilities {
+    .scrollbar-hide {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+}

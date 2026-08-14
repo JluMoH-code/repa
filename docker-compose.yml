@@ -1,0 +1,92 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    container_name: seedshop-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      # vendor живёт на нативной для Docker файловой системе, а не на bind-mount
+      # с Windows-хоста: там тысячи PHP/Blade-файлов, и каждый запрос иначе
+      # упирается в проверку mtime каждого файла через медленный NTFS-мост.
+      - vendor_data:/var/www/html/vendor
+    environment:
+      - PHP_IDE_CONFIG=serverName=seedshop
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - seedshop
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    container_name: seedshop-nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - app
+    networks:
+      - seedshop
+
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+    container_name: seedshop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-seedshop}
+      POSTGRES_USER: ${DB_USERNAME:-seedshop}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "${DB_FORWARD_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - seedshop
+
+  redis:
+    build:
+      context: .
+      dockerfile: docker/redis/Dockerfile
+    container_name: seedshop-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_FORWARD_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - seedshop
+
+  node:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    container_name: seedshop-node
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - node_modules_data:/var/www/html/node_modules
+    ports:
+      - "${VITE_FORWARD_PORT:-5173}:5173"
+    depends_on:
+      - app
+    networks:
+      - seedshop
+
+networks:
+  seedshop:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  vendor_data:
+  node_modules_data:
