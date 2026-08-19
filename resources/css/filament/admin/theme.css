@@ -1,0 +1,28 @@
+/*
+ * Кастомная тема админки Filament — приводим её к общему виду витрины Repa.
+ *
+ * Палитра (primary/gray/success/warning/info/danger) задаётся в
+ * app/Providers/Filament/AdminPanelProvider.php как runtime CSS-переменные
+ * (--primary-*, --gray-* и т.д. в :root), отсюда в @theme-токенах Filament
+ * --color-primary-600: var(--primary-600) и т.п. — менять оттенки нужно там,
+ * чтобы витрина и админка использовали одни и те же значения.
+ *
+ * Здесь — только точечные переопределения под стиль витрины:
+ * - активный пункт сайдбара подсвечивается как в личном кабинете витрины
+ *   (bg-brand-50 + text-brand-700);
+ * - шрифт берётся из --font-family панели (локальный Inter Variable из
+ *   комплекта Filament, без внешних CDN — как и на витрине).
+ */
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+    background-color: var(--color-primary-50);
+}
+
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-icon,
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-label {
+    color: var(--color-primary-700);
+}

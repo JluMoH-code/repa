@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Widgets\StatsOverview;
 use App\Filament\Widgets\WelcomeBanner;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\SetAdminLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -33,28 +34,38 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             // Единый вход через Fortify (/login), отдельной страницы входа у панели нет.
             ->authGuard('web')
-            ->font('Inter')
+            // Палитра витрины Repa: primary — зелёный бренд (Tailwind green,
+            // #16a34a = 600), gray — slate (нейтрали витрины), success — emerald
+            // (бейджи «В наличии»), warning — оранжевый акцент, info — blue,
+            // danger — red. Оттенки уходят в runtime CSS-переменные панели
+            // (--primary-*, --gray-* и т.д.), из которых собрана тема.
             ->colors([
-                'primary' => Color::Hex('#16a34a'),
+                'primary' => Color::Green,
+                'gray' => Color::Slate,
+                'success' => Color::Emerald,
+                'warning' => Color::Orange,
+                'info' => Color::Blue,
+                'danger' => Color::Red,
             ])
+            // Кастомная тема под вид витрины (см. resources/css/filament/admin/theme.css).
+            // Шрифт — локальный Inter Variable из комплекта Filament (без `->font()`,
+            // т.к. тот грузит шрифт с Bunny CDN, а витрина — системный стек без CDN).
+            ->viteTheme('resources/css/filament/admin/theme.css')
+            // Тёмная тема отключена: витрина Repa светлая, и админка должна быть
+            // такой же (в Filament по умолчанию режим «система/из localStorage»,
+            // из-за чего админка могла рендериться тёмной). Переключатель темы
+            // в топбаре при этом не показывается, localStorage принудительно = light.
+            ->darkMode(false)
             ->brandName('Repa')
             ->brandLogo(asset('images/repa-logo.svg'))
             ->brandLogoHeight('1.5rem')
             ->favicon(asset('images/repa-logo.svg'))
             // Клик по логотипу/названию в сайдбаре ведёт на витрину.
             ->homeUrl(fn () => route('storefront'))
-            // Точечные правки стиля под витрину (после CSS Filament).
+            // Кнопка «Открыть магазин» в шапке админки — как на дашборде.
             ->renderHook(
-                PanelsRenderHook::HEAD_END,
-                fn (): HtmlString => new HtmlString('<style>
-                    .fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
-                        background-color: var(--primary-50);
-                    }
-                    .fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-icon,
-                    .fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-label {
-                        color: var(--primary-700);
-                    }
-                </style>'),
+                PanelsRenderHook::TOPBAR_END,
+                fn (): HtmlString => new HtmlString(view('filament.partials.open-storefront-link')->render()),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
@@ -77,6 +88,8 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                // Админка всегда на русском (кнопки и уведомления Filament).
+                SetAdminLocale::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

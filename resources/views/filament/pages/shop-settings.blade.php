@@ -1,11 +1,18 @@
 <x-filament-panels::page>
-    <form wire:submit="save" class="fi-section rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-        <div class="space-y-6">
+    <x-filament::section
+        icon="heroicon-o-cog-6-tooth"
+        icon-color="primary"
+        heading="Основные контакты"
+        description="Телефон, почта и адрес — отображаются в шапке и подвале витрины."
+    >
+        <form wire:submit="save" class="space-y-6">
             {{ $this->form }}
 
-            <x-filament::button type="submit">
-                Сохранить настройки
-            </x-filament::button>
-        </div>
-    </form>
+            <div class="flex justify-end">
+                <x-filament::button type="submit">
+                    Сохранить настройки
+                </x-filament::button>
+            </div>
+        </form>
+    </x-filament::section>
 </x-filament-panels::page>
