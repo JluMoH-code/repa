@@ -12,15 +12,14 @@
             </span>
         </a>
 
-        <form action="#" class="hidden flex-1 items-stretch md:flex">
+        <form action="{{ route('search') }}" method="GET" class="hidden flex-1 items-stretch md:flex">
             <input
                 type="text"
+                name="q"
+                value="{{ request('q') }}"
                 placeholder="Введите запрос..."
                 class="w-full rounded-l-md border border-slate-300 border-r-0 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
-            <select class="border border-slate-300 border-r-0 border-l-0 bg-slate-50 px-3 text-sm text-slate-600 focus:outline-none">
-                <option>Все</option>
-            </select>
             <button type="submit" class="rounded-r-md bg-accent-500 px-4 text-white hover:bg-accent-600" aria-label="Найти">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
