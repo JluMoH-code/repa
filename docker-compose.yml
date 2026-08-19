@@ -5,6 +5,12 @@ services:
       dockerfile: docker/app/Dockerfile
     container_name: seedshop-app
     restart: unless-stopped
+    # Все процессы контейнера (php-fpm и CLI через `docker compose exec`) работают
+    # от www-data, а не от root: иначе запуск `php artisan test` / `view:cache`
+    # от root перезаписывает владельца скомпилированных вьюх (storage/framework/views)
+    # и php-fpm падает с 500 «touch(): Utime failed: Operation not permitted».
+    # chown в entrypoint.sh выполняется только при старте от root (см. файл).
+    user: "www-data:www-data"
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html

@@ -12,12 +12,14 @@ mkdir -p storage/framework/cache \
          storage/logs \
          bootstrap/cache
 
-# storage/ и bootstrap/cache/ смонтированы с хоста бинд-маунтом, поэтому владельца
-# и права нужно фиксировать здесь, при каждом старте контейнера, а не в Dockerfile:
-# на этапе docker build этих файлов ещё нет — они появляются только после monут'а
-# volume, который подставляет содержимое (и права) с хоста поверх образа.
-chown -R www-data:www-data storage bootstrap/cache
-find storage bootstrap/cache -type d -exec chmod 775 {} \;
-find storage bootstrap/cache -type f -exec chmod 664 {} \;
+# Сервис app в docker-compose.yml работает от www-data (user: "www-data:www-data"),
+# поэтому storage/ и bootstrap/cache/ принадлежат www-data с самого начала, и chown
+# не нужен. Но если контейнер стартует от root (старые образы/ручной запуск) —
+# приводим владельца и права, т.к. эти папки смонтированы с хоста бинд-маунтом.
+if [ "$(id -u)" = "0" ]; then
+    chown -R www-data:www-data storage bootstrap/cache
+    find storage bootstrap/cache -type d -exec chmod 775 {} \;
+    find storage bootstrap/cache -type f -exec chmod 664 {} \;
+fi
 
 exec "$@"
