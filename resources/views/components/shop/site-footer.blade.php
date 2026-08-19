@@ -50,7 +50,7 @@
                         <svg width="16" height="16" class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                         </svg>
-                        <a href="tel:{{ preg_replace('/\D+/', '', $contactPhone) }}" class="hover:text-brand-700">{{ $contactPhone }}</a>
+                        <a href="tel:{{ preg_replace('/[^\d+]/', '', $contactPhone) }}" class="hover:text-brand-700">{{ $contactPhone }}</a>
                     </li>
                     <li class="flex items-center gap-2">
                         <svg width="16" height="16" class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,12 +67,12 @@
                 </ul>
             </div>
 
-            <!-- Карта Яндекс -->
+            <!-- Карта Яндекс (ищет адрес из настроек магазина) -->
             <div class="lg:col-span-1">
                 <h3 class="mb-3 font-semibold text-slate-900">Мы на карте</h3>
                 <div class="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
                     <iframe 
-                        src="https://yandex.ru/map-widget/v1/?ll=44.786693%2C48.783593&mode=search&ol=geo&ouri=ymapsbm1%3A%2F%2Fgeo%3Fdata%3DCgg1NjQwNTIyMBJc0KDQvtGB0YHQuNGPLCDQnNC-0YHQutC-0LLQviwg1L7QsdC70LDRgdGC0YwsINCf0L7QtNCy0LXRgNC-0LLQviwg0L_QvtC80L7RgdC_0LzQtdC90LrQsNGG0LAsIDY0IgoNWLkzVUIcXEJC&amp;z=16.61" 
+                        src="https://yandex.ru/map-widget/v1/?text={{ urlencode($contactAddress) }}&z=16" 
                         width="100%" 
                         height="250" 
                         frameborder="0" 
@@ -83,7 +83,7 @@
                     ></iframe>
                 </div>
                 <div class="mt-2 text-xs text-slate-500">
-                    <a href="https://yandex.ru/maps/-/CDu~eKqJ" target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:text-brand-700 underline">
+                    <a href="https://yandex.ru/maps/?text={{ urlencode($contactAddress) }}" target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:text-brand-700 underline">
                         Открыть в Яндекс.Картах →
                     </a>
                 </div>
