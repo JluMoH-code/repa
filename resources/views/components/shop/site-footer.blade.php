@@ -67,12 +67,13 @@
                 </ul>
             </div>
 
-            <!-- Карта Яндекс (ищет адрес из настроек магазина) -->
+            <!-- Карта Яндекс: метка на адресе магазина (координаты ул. Поддубного 1,
+                 Волгоград; если адрес в настройках изменится — обновить и ll/pt) -->
             <div class="lg:col-span-1">
                 <h3 class="mb-3 font-semibold text-slate-900">Мы на карте</h3>
                 <div class="overflow-hidden rounded-lg border border-slate-200 shadow-sm">
                     <iframe 
-                        src="https://yandex.ru/map-widget/v1/?text={{ urlencode($contactAddress) }}&z=16" 
+                        src="https://yandex.ru/map-widget/v1/?ll=44.5428453%2C48.7719530&z=16&pt=44.5428453,48.7719530,pm2rdm" 
                         width="100%" 
                         height="250" 
                         frameborder="0" 
