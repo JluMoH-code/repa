@@ -13,10 +13,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Тестовый администратор (вход через общий /login → попадает в админку).
+        // Стандартный администратор (вход через общий /login → попадает в админку).
         User::factory()->create([
-            'name' => 'Test Admin',
-            'email' => 'test@test.com',
+            'name' => 'Администратор',
+            'email' => 'admin@admin.com',
             'role' => UserRole::Admin,
         ]);
 

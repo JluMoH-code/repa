@@ -95,6 +95,10 @@ Docker Desktop + WSL2-бэкенд):
   появляются» — перезапустить node-контейнер: `docker compose restart node`,
   затем в браузере жёсткое обновление (Ctrl+F5, dev-URL модулей без хэша,
   браузер может держать старую версию в кэше).
+- ⚠️ **Запуск artisan/тестов от root перезаписывает владельца компилированных
+  вьюх** (`storage/framework/views`) — витрина/админка начинают отдавать 500
+  (`touch(): Utime failed: Operation not permitted`). Лечится:
+  `docker compose exec app sh -c "chown -R www-data:www-data storage bootstrap/cache"`.
 
 ## 4. Тестовое окружение
 
@@ -394,4 +398,4 @@ docker compose exec app composer dump-autoload -o
 docker compose exec app php artisan tinker --execute="\App\Models\User::factory()->create(['email' => 'admin@example.com']);"
 ```
 
-Тестовый пользователь (создаётся сидером): `test@test.com` / `password`.
+Тестовый пользователь (создаётся сидером): администратор `admin@admin.com` / `password`.
