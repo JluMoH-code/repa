@@ -1,6 +1,7 @@
 <header class="border-b border-slate-100 bg-white">
     @php
         $cartCount = app(\App\Actions\Cart\CartManager::class)->count();
+        $favoritesCount = app(\App\Actions\Favorites\FavoriteManager::class)->count();
     @endphp
     <div class="mx-auto flex max-w-7xl items-center gap-6 px-4 py-4">
         <a href="{{ url('/') }}" class="flex items-center gap-2 shrink-0">
@@ -37,17 +38,25 @@
                 </svg>
                 Сравнить (0)
             </a>
-            <a href="#" class="hidden items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-slate-600 hover:border-brand-300 hover:text-brand-700 lg:flex">
+            <a href="{{ route('cabinet.favorites') }}" class="relative hidden items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-slate-600 hover:border-brand-300 hover:text-brand-700 lg:flex">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                 </svg>
                 Избранное
+                <span id="favorites-count" class="rounded-full bg-accent-500 px-1.5 py-0.5 text-[11px] font-semibold text-white">{{ $favoritesCount }}</span>
             </a>
-            <a href="{{ route('login') }}" class="flex size-10 items-center justify-center rounded-md bg-slate-800 text-white hover:bg-slate-700" aria-label="Личный кабинет">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                </svg>
-            </a>
+            @auth
+                <a href="{{ route('cabinet.index') }}" class="flex items-center gap-2 rounded-md bg-slate-800 py-2 pr-3 pl-2 text-white hover:bg-slate-700" aria-label="Личный кабинет">
+                    <span class="flex size-6 items-center justify-center rounded-full bg-white/15 text-xs font-bold uppercase">{{ mb_substr(auth()->user()->name, 0, 1) }}</span>
+                    <span class="hidden max-w-28 truncate font-medium lg:inline">{{ auth()->user()->name }}</span>
+                </a>
+            @else
+                <a href="{{ route('login') }}" class="flex size-10 items-center justify-center rounded-md bg-slate-800 text-white hover:bg-slate-700" aria-label="Личный кабинет">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                    </svg>
+                </a>
+            @endauth
             <a href="{{ route('cart.index') }}" class="relative flex items-center gap-2 text-slate-700 hover:text-brand-700" aria-label="Корзина">
                 <span class="relative flex size-10 items-center justify-center rounded-md border border-slate-200">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-5">

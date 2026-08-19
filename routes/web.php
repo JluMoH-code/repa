@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\CabinetController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\DemoProductPageController;
+use App\Http\Controllers\FavoritesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SearchController;
@@ -31,9 +33,19 @@ Route::post('/cart/update', [CartController::class, 'update'])->name('cart.updat
 Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
 Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
 
-Route::middleware('auth')->get('/home', function () {
-    return view('home');
-})->name('home');
+Route::middleware('auth')->group(function () {
+    // Личный кабинет
+    Route::get('/cabinet', [CabinetController::class, 'index'])->name('cabinet.index');
+    Route::get('/cabinet/profile', [CabinetController::class, 'profile'])->name('cabinet.profile');
+    Route::post('/cabinet/profile', [CabinetController::class, 'updateProfile'])->name('cabinet.profile.update');
+    Route::post('/cabinet/password', [CabinetController::class, 'updatePassword'])->name('cabinet.password.update');
+    Route::get('/cabinet/orders', [CabinetController::class, 'orders'])->name('cabinet.orders');
+    Route::get('/cabinet/favorites', [FavoritesController::class, 'index'])->name('cabinet.favorites');
+});
+
+// Избранное (AJAX с карточек; гости хранят его в сессии, как корзину)
+Route::post('/favorites/toggle', [FavoritesController::class, 'toggle'])->name('favorites.toggle');
+Route::post('/favorites/remove', [FavoritesController::class, 'remove'])->name('favorites.remove');
 
 // TEMP: dev-only perf measurement helper, remove after use.
 Route::get('/__dev_login', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Actions\Favorites\FavoriteManager;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
 
@@ -12,7 +13,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Singleton: FavoriteManager кэширует ID избранного на время запроса,
+        // чтобы карточки товаров не делали по запросу на каждую.
+        $this->app->singleton(FavoriteManager::class);
     }
 
     /**
