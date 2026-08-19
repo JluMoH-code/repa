@@ -102,4 +102,22 @@ class CabinetTest extends TestCase
             ->assertOk()
             ->assertSee('Заказов пока нет');
     }
+
+    public function test_admin_sees_admin_panel_link_in_sidebar(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->get(route('cabinet.index'))
+            ->assertOk()
+            ->assertSee('Перейти в админ-панель');
+    }
+
+    public function test_customer_does_not_see_admin_panel_link_in_sidebar(): void
+    {
+        $user = $this->user();
+
+        $this->actingAs($user)->get(route('cabinet.index'))
+            ->assertOk()
+            ->assertDontSee('Перейти в админ-панель');
+    }
 }
