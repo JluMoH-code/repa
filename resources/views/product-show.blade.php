@@ -48,9 +48,53 @@
                         </span>
                     @endif
 
-                    <button type="button" class="rounded-md bg-brand-600 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-700 transition-colors">
-                        В корзину
-                    </button>
+                    @php
+                        $available = $product->variants->isNotEmpty()
+                            ? $product->variants->contains('in_stock', true)
+                            : $product->in_stock;
+                    @endphp
+
+                    <div x-data="{ qty: 1 }" class="flex flex-wrap items-center gap-3">
+                        <div class="inline-flex items-center rounded-md border border-slate-300 bg-white">
+                            <button
+                                type="button"
+                                @click="qty = Math.max(1, qty - 1)"
+                                class="flex size-10 items-center justify-center text-slate-500 hover:bg-slate-100"
+                                aria-label="Уменьшить количество"
+                            >−</button>
+                            <input
+                                type="number"
+                                x-model.number="qty"
+                                min="1"
+                                max="99"
+                                class="w-14 border-x border-slate-300 py-2 text-center text-sm focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            >
+                            <button
+                                type="button"
+                                @click="qty = Math.min(99, qty + 1)"
+                                class="flex size-10 items-center justify-center text-slate-500 hover:bg-slate-100"
+                                aria-label="Увеличить количество"
+                            >+</button>
+                        </div>
+
+                        @if ($available)
+                            <button
+                                type="button"
+                                @click="addToCart({{ $product->id }}, qty)"
+                                class="rounded-md bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+                            >
+                                В корзину
+                            </button>
+                        @else
+                            <button
+                                type="button"
+                                disabled
+                                class="cursor-not-allowed rounded-md bg-slate-300 px-6 py-3 text-sm font-semibold text-white"
+                            >
+                                Нет в наличии
+                            </button>
+                        @endif
+                    </div>
 
                     <button type="button" class="flex size-11 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:text-accent-600 transition-colors" aria-label="В избранное">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-5">

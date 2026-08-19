@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? config('app.name') }}</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -17,6 +18,9 @@
     </main>
 
     <x-shop.site-footer :footer-categories="$footerCategories ?? collect()" />
+
+    {{-- Контейнер для toast-уведомлений (добавление в корзину и т.д.) --}}
+    <div id="toast-container" class="pointer-events-none fixed inset-x-0 top-4 z-50 flex flex-col items-center gap-2 px-4"></div>
 
     @livewireScripts
 </body>

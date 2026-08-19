@@ -77,6 +77,7 @@
 
         <button
             type="button"
+            @click="addToCart({{ $product->id }})"
             class="mt-2 w-full rounded-md py-2 text-sm font-medium transition-colors"
             :class="available ? 'bg-slate-100 text-slate-700 hover:bg-accent-500 hover:text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'"
             :disabled="! available"

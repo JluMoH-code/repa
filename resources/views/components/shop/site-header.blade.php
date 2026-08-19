@@ -1,4 +1,7 @@
 <header class="border-b border-slate-100 bg-white">
+    @php
+        $cartCount = app(\App\Actions\Cart\CartManager::class)->count();
+    @endphp
     <div class="mx-auto flex max-w-7xl items-center gap-6 px-4 py-4">
         <a href="{{ url('/') }}" class="flex items-center gap-2 shrink-0">
             <span class="flex size-9 items-center justify-center rounded-lg bg-brand-600 text-white">
@@ -45,12 +48,12 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                 </svg>
             </a>
-            <a href="#" class="relative flex items-center gap-2 text-slate-700 hover:text-brand-700">
+            <a href="{{ route('cart.index') }}" class="relative flex items-center gap-2 text-slate-700 hover:text-brand-700" aria-label="Корзина">
                 <span class="relative flex size-10 items-center justify-center rounded-md border border-slate-200">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.708 2.602-7.201.245-1.007-.44-2.049-1.4-2.049H5.106M7.5 14.25 5.106 5.25M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
                     </svg>
-                    <span class="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-accent-500 text-xs font-semibold text-white">0</span>
+                    <span id="cart-count" class="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-accent-500 text-xs font-semibold text-white">{{ $cartCount }}</span>
                 </span>
                 <span class="hidden font-medium lg:inline">Корзина</span>
             </a>
