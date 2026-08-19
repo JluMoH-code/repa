@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Проект
-Seed Shop — интернет-магазин семян (перенос офлайн-магазина в онлайн).
+Repa — интернет-магазин семян (перенос офлайн-магазина в онлайн).
 
 ## Стек
 - PHP 8.3, Laravel 13
@@ -35,16 +35,18 @@ config/route ломает тесты и валидацию форм).
 
 ## Структура
 - Роуты: `routes/web.php` (только web, `routes/api.php` отсутствует)
-- Контроллеры: `app/Http/Controllers` (Home, Catalog, Product, DemoProductPage)
-- Модели: `app/Models` (Category, Manufacturer, Product, ProductImage, ProductVariant, FilterGroup, FilterValue, User)
-- Enum'ы: `app/Enums` (ProductStatus, RipeningPeriod, GrowingPlace)
+- Контроллеры: `app/Http/Controllers` (Home, Catalog, Product, Cart, Cabinet, Favorites, DemoProductPage)
+- Модели: `app/Models` (Category, Manufacturer, Product, ProductImage, ProductVariant, FilterGroup, FilterValue, User, Cart, Favorite)
+- Enum'ы: `app/Enums` (ProductStatus, RipeningPeriod, GrowingPlace, Gender)
 - Fortify-actions: `app/Actions/Fortify`
+- Бизнес-логика корзины/избранного: `app/Actions/{Cart,Favorites}` (CartManager, FavoriteManager)
+- Listeners: `app/Listeners` (MergeGuestDataOnLogin — перенос корзины и избранного при входе)
 - Админка Filament: `app/Filament/{Pages,Resources}` — ресурсы Categories/Manufacturers/Products
 - Миграции: `database/migrations`; сидеры: `database/seeders/CatalogSeeder.php`
 - Тесты: `tests/Feature`, `tests/Unit`
 - Конфиги: `config/*.php` (без нестандартных пакет-конфигов)
 - Frontend: `resources/views` (Blade, включая `resources/views/filament`), `resources/js`, `resources/css`
-- Отсутствуют (не создавались на данном этапе): `app/Http/Middleware` (кастомные), `app/Http/Requests`, `app/Services`, `app/Repositories`, `app/Jobs`, `app/Events`, `app/Listeners`, `app/Notifications`, `app/Mail`, `app/Policies`
+- Отсутствуют (не создавались на данном этапе): `app/Http/Middleware` (кастомные), `app/Http/Requests`, `app/Services`, `app/Repositories`, `app/Jobs`, `app/Events`, `app/Notifications`, `app/Mail`, `app/Policies`
 
 ## Архитектурные правила
 - Бизнес-правила товара/категории реализованы как guard'ы в Eloquent-событиях
@@ -67,13 +69,12 @@ config/route ломает тесты и валидацию форм).
 - не удалять миграции;
 - не менять `vendor/`, `node_modules/`;
 - не добавлять тяжёлые зависимости (например, для XLSX-импорта) без явного запроса;
-- не ломать существующие тесты (20 зелёных в `tests/Feature`, `tests/Unit`);
+- не ломать существующие тесты (70 зелёных в `tests/Feature`, `tests/Unit`);
 - не трогать роут `/__dev_login` без явного запроса — временный dev-хелпер,
   известен и должен быть удалён перед продакшеном (см. docs/PROJECT_STATUS.md).
 
 ## Definition of Done
 - код работает, миграции применяются без ошибок;
-- `php artisan optimize:clear && php artisan test` — все тесты зелёные
-  (кроме заведомо известного падающего `ImportProductsTest`, см. docs/PROJECT_STATUS.md);
+- `php artisan optimize:clear && php artisan test` — все тесты зелёные;
 - `./vendor/bin/pint` без ошибок;
 - при изменении схемы БД/бизнес-правил — обновить `docs/PROJECT_STATUS.md`.
