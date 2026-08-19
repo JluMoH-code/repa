@@ -22,6 +22,14 @@ docker compose exec node npm run dev       # Vite dev-сервер (порт 517
 # nginx отдаёт приложение на http://localhost:8080 (APP_PORT)
 ```
 
+> ⚠️ После правок `docker/app/entrypoint.sh` / `docker/app/Dockerfile` пересобрать
+> контейнер: `docker compose up -d --build app`. Если админка/витрина отдают 500
+> «touch(): Utime failed: Operation not permitted» (владелец скомпилированных
+> вьюх сбился на root):
+> `docker compose exec app sh -c "chown -R www-data:www-data storage bootstrap/cache"`.
+> CLI-команды PHP (`php artisan ...`) entrypoint выполняет от www-data — так
+> вьюхи не становятся root-овыми.
+
 ## Database
 ```bash
 docker compose exec app php artisan migrate

@@ -95,10 +95,16 @@ Docker Desktop + WSL2-бэкенд):
   появляются» — перезапустить node-контейнер: `docker compose restart node`,
   затем в браузере жёсткое обновление (Ctrl+F5, dev-URL модулей без хэша,
   браузер может держать старую версию в кэше).
-- ⚠️ **Запуск artisan/тестов от root перезаписывает владельца компилированных
-  вьюх** (`storage/framework/views`) — витрина/админка начинают отдавать 500
-  (`touch(): Utime failed: Operation not permitted`). Лечится:
-  `docker compose exec app sh -c "chown -R www-data:www-data storage bootstrap/cache"`.
+- ⚠️ **CLI-команды PHP (artisan, тесты) теперь выполняются от www-data, а не от
+  root**: это делает `docker/app/entrypoint.sh` (через `setpriv` из util-linux).
+  Раньше запуск `php artisan test` / `view:cache` от root
+  перезаписывал владельца скомпилированных вьюх (`storage/framework/views`) на
+  root, и php-fpm (www-data) не мог их `touch()` — витрина и админка падали с 500
+  `touch(): Utime failed: Operation not permitted`. После правки entrypoint/Dockerfile
+  контейнер нужно пересобрать: `docker compose up -d --build app`.
+  Если 500 всё же случился (например, контейнер ещё не пересобран):
+  `docker compose exec app sh -c "chown -R www-data:www-data storage bootstrap/cache"`
+  (`sh` в entrypoint остаётся root, так что chown работает).
 
 ## 4. Тестовое окружение
 
@@ -231,7 +237,18 @@ Filament-странице «Настройки магазина» (`/admin/shop-
   перенаправляет в кабинет), `User::canAccessPanel()`;
 - Заблокированный (`is_blocked`) не проходит вход — шаг пайплайна
   `App\Actions\Fortify\CheckIfUserIsBlocked`;
-- Тема: primary `#16a34a`, логотип `public/images/repa-logo.svg`;
+- Тема: кастомная Filament-тема `resources/css/filament/admin/theme.css`
+  (регистрируется через `->viteTheme()` в `AdminPanelProvider`), палитра витрины —
+  primary = зелёный бренд (Tailwind green, #16a34a), gray = slate, success =
+  emerald, warning = оранжевый акцент, info = blue, danger = red; шрифт — локальный
+  Inter Variable из комплекта Filament (без внешних CDN, как и на витрине);
+  логотип `public/images/repa-logo.svg`, кнопка «Открыть магазин» в топбаре;
+  тёмная тема отключена (`->darkMode(false)`) — админка всегда светлая;
+- Локализация: админка принудительно на русском — middleware
+  `App\Http\Middleware\SetAdminLocale` ставит `app()->setLocale('ru')` для
+  запросов панели (глобально в .env APP_LOCALE=en, менять его нельзя), а все
+  кнопки/уведомления берутся из встроенных ru-переводов Filament
+  (`vendor/filament/*/resources/lang/ru`);
 - Дашборд: `App\Filament\Widgets\StatsOverview` (товары/категории/
   производители/пользователи), виджет FilamentInfoWidget убран;
 - Ресурс `App\Filament\Resources\Users\UserResource` (роль, блокировка,
