@@ -20,6 +20,12 @@ class DatabaseSeeder extends Seeder
             'role' => UserRole::Admin,
         ]);
 
+        // Тестовый покупатель (проверка витрины, корзины, избранного, кабинета).
+        User::factory()->create([
+            'name' => 'Тестовый пользователь',
+            'email' => 'test@test.com',
+        ]);
+
         $this->call(CatalogSeeder::class);
     }
 }

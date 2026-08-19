@@ -415,4 +415,5 @@ docker compose exec app composer dump-autoload -o
 docker compose exec app php artisan tinker --execute="\App\Models\User::factory()->create(['email' => 'admin@example.com']);"
 ```
 
-Тестовый пользователь (создаётся сидером): администратор `admin@admin.com` / `password`.
+Тестовые пользователи (создаются сидером): администратор `admin@admin.com` / `password`,
+покупатель `test@test.com` / `password`.
