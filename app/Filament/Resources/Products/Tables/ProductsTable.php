@@ -25,7 +25,7 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['category', 'manufacturer', 'images']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['category', 'manufacturer', 'images', 'variants', 'filterValues.group']))
             ->columns([
                 ImageColumn::make('main_image')
                     ->label('')
@@ -47,6 +47,19 @@ class ProductsTable
                     ->label('Цена')
                     ->formatStateUsing(fn (?int $state) => $state === null ? '—' : number_format($state / 100, 2, ',', ' ').' ₽')
                     ->sortable(),
+                TextColumn::make('variants_count')
+                    ->label('Вариантов')
+                    ->counts('variants')
+                    ->state(fn (Product $record) => $record->variants->isEmpty()
+                        ? '—'
+                        : $record->variants->count().' (от '.number_format((int) $record->variants->min('price') / 100, 0, ',', ' ').' ₽)')
+                    ->sortable(),
+                TextColumn::make('filterValues.value')
+                    ->label('Фильтры')
+                    ->state(fn (Product $record) => $record->filterValues->pluck('value')->all())
+                    ->badge()
+                    ->limit(3)
+                    ->placeholder('—'),
                 TextColumn::make('status')
                     ->label('Статус')
                     ->badge()
@@ -114,6 +127,55 @@ class ProductsTable
 
                             Notification::make()
                                 ->title('Статус обновлён у '.$records->count().' товаров')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('assignFilterValue')
+                        ->label('Назначить значение фильтра')
+                        ->schema([
+                            Select::make('filter_value_id')
+                                ->label('Значение фильтра')
+                                ->options(function (Collection $records) {
+                                    $roots = $records
+                                        ->map(fn (Product $record) => $record->category?->breadcrumbs()->first())
+                                        ->filter()
+                                        ->unique('id')
+                                        ->values();
+
+                                    if ($roots->count() !== 1) {
+                                        return [];
+                                    }
+
+                                    return \App\Models\FilterGroup::query()
+                                        ->where('category_id', $roots->first()->id)
+                                        ->with('values')
+                                        ->get()
+                                        ->mapWithKeys(fn ($group) => [
+                                            $group->name => $group->values->pluck('value', 'id')->all(),
+                                        ])
+                                        ->all();
+                                })
+                                ->searchable()
+                                ->preload()
+                                ->native(false)
+                                ->required()
+                                ->disabled(function (Collection $records) {
+                                    $roots = $records
+                                        ->map(fn (Product $record) => $record->category?->breadcrumbs()->first()?->id)
+                                        ->filter()
+                                        ->unique()
+                                        ->values();
+
+                                    return $roots->count() !== 1;
+                                })
+                                ->helperText('Доступно, если все выбранные товары относятся к одной корневой категории'),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $records->each(fn (Product $record) => $record->filterValues()->syncWithoutDetaching([$data['filter_value_id']]));
+
+                            Notification::make()
+                                ->title('Значение фильтра назначено '.$records->count().' товарам')
                                 ->success()
                                 ->send();
                         })

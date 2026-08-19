@@ -8,7 +8,7 @@
                 <h3 class="mb-3 font-semibold text-slate-900">Популярные категории</h3>
                 <ul class="space-y-2 text-sm text-slate-600">
                     @forelse ($footerCategories as $category)
-                        <li><a href="#" class="hover:text-brand-700">{{ $category->name }}</a></li>
+                        <li><a href="{{ route('catalog.show', $category) }}" class="hover:text-brand-700">{{ $category->name }}</a></li>
                     @empty
                         <li class="text-slate-400">Категории появятся здесь</li>
                     @endforelse

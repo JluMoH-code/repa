@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Product;
 use App\Models\ProductVariant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -10,15 +11,16 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class ProductVariantFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    protected $model = ProductVariant::class;
+
     public function definition(): array
     {
         return [
-            //
+            'product_id' => Product::factory(),
+            'label' => $this->faker->randomElement(['10 семян', '20 семян', '50 семян']),
+            'price' => $this->faker->numberBetween(3000, 25000),
+            'in_stock' => true,
+            'sort_order' => 0,
         ];
     }
 }

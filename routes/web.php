@@ -13,6 +13,9 @@ Route::get('/product/{product}', [App\Http\Controllers\ProductController::class,
 // решается контроллером по наличию подкатегорий у категории.
 Route::get('/catalog/{category}', [App\Http\Controllers\CatalogController::class, 'show'])->name('catalog.show');
 
+// Поиск по каталогу
+Route::get('/search', [App\Http\Controllers\SearchController::class, 'index'])->name('search');
+
 // Демо-страница карточки товара (СЗР) — статичные данные, см. комментарий в контроллере.
 Route::get('/demo/product', [DemoProductPageController::class, 'show'])->name('demo.product');
 

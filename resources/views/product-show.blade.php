@@ -2,6 +2,7 @@
     <x-shop.breadcrumbs :items="$breadcrumbs" />
 
     <div class="mx-auto max-w-7xl px-4 pb-12">
+        {{-- Верхняя часть с галереей, информацией и сайдбаром --}}
         <div class="grid gap-6 lg:grid-cols-[380px_1fr_320px]">
             {{-- Галерея --}}
             <div>
@@ -98,9 +99,11 @@
             </div>
         </div>
 
-        {{-- Табы с описанием и характеристиками --}}
+        {{-- Табы с описанием, характеристиками и отзывами (ширина = галерея + инфо) --}}
         <div class="mt-8">
-            <x-shop.product-tabs :tabs="$tabs" />
+            <div class="lg:col-span-2 lg:col-start-1 lg:col-end-3">
+                <x-shop.product-tabs :tabs="$tabs" />
+            </div>
         </div>
     </div>
 </x-layouts.shop>

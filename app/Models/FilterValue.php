@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use InvalidArgumentException;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
 
@@ -38,5 +39,28 @@ class FilterValue extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'filter_value_product');
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $value) {
+            if (blank($value->filter_group_id)) {
+                throw new InvalidArgumentException(
+                    'Значение фильтра должно принадлежать группе фильтров.'
+                );
+            }
+
+            $duplicate = static::query()
+                ->where('filter_group_id', $value->filter_group_id)
+                ->where('slug', $value->slug)
+                ->when($value->exists, fn ($q) => $q->whereKeyNot($value->id))
+                ->exists();
+
+            if ($duplicate) {
+                throw new InvalidArgumentException(
+                    "Значение со slug «{$value->slug}» уже существует в этой группе."
+                );
+            }
+        });
     }
 }

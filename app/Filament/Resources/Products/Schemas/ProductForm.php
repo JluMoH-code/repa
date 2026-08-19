@@ -104,6 +104,10 @@ class ProductForm
                                 Toggle::make('is_discountable')
                                     ->label('Участвует в скидках/программе лояльности')
                                     ->default(true),
+                                Toggle::make('in_stock')
+                                    ->label('В наличии')
+                                    ->default(true)
+                                    ->helperText('Если у товара есть варианты, наличие на витрине определяется по ним'),
                                 Toggle::make('is_bestseller')
                                     ->label('Показывать в «Хиты продаж»')
                                     ->default(false),
@@ -142,6 +146,50 @@ class ProductForm
                                     ->columnSpanFull(),
                             ])
                             ->columns(2),
+
+                        Tab::make('Варианты')
+                            ->schema([
+                                Repeater::make('variants')
+                                    ->relationship()
+                                    ->label('')
+                                    ->helperText('Напр. «10 семян», «20 семян». На витрине показывается цена выбранного варианта. Основная цена товара должна быть не выше максимальной цены варианта.')
+                                    ->schema([
+                                        TextInput::make('label')
+                                            ->label('Название')
+                                            ->required()
+                                            ->maxLength(255),
+                                        TextInput::make('price')
+                                            ->label('Цена')
+                                            ->helperText('В копейках, например 15000 = 150 ₽')
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->required(),
+                                        Toggle::make('in_stock')
+                                            ->label('В наличии')
+                                            ->default(true),
+                                    ])
+                                    ->columns(3)
+                                    ->orderColumn('sort_order')
+                                    ->reorderable()
+                                    ->reorderableWithDragAndDrop()
+                                    ->collapsible()
+                                    ->defaultItems(0)
+                                    ->addActionLabel('Добавить вариант')
+                                    ->itemLabel(fn (array $state) => $state['label'] ?? 'Вариант'),
+                            ]),
+
+                        Tab::make('Фильтры категории')
+                            ->schema([
+                                Select::make('filterValues')
+                                    ->label('Значения фильтров')
+                                    ->helperText('Значения из групп фильтров корневой категории. Назначаются для фильтрации в каталоге.')
+                                    ->multiple()
+                                    ->options(fn (Product $record) => $record->filterOptionGroups())
+                                    ->searchable()
+                                    ->preload()
+                                    ->native(false)
+                                    ->columnSpanFull(),
+                            ]),
 
                         Tab::make('Описание')
                             ->schema([

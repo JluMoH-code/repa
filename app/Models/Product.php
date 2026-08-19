@@ -101,7 +101,119 @@ class Product extends Model
                     );
                 }
             }
+
+            // Варианты: основная цена — "цена от", она не может быть выше
+            // самой дорогой версии (ловим опечатки оператора, напр. 150000
+            // вместо 15000). old_price должен быть выше всех вариантов.
+            // Проверяем по БД — не зависит от состояния relation.
+            if ($product->getKey() !== null) {
+                $maxVariantPrice = (int) ProductVariant::query()
+                    ->where('product_id', $product->getKey())
+                    ->max('price');
+
+                if ($maxVariantPrice > 0) {
+                    if ($maxVariantPrice > $product->price) {
+                        throw new InvalidArgumentException(
+                            'Основная цена товара должна быть не выше максимальной цены варианта.'
+                        );
+                    }
+
+                    if ($product->old_price !== null && $product->old_price <= $maxVariantPrice) {
+                        throw new InvalidArgumentException(
+                            'Старая цена должна быть выше максимальной цены варианта.'
+                        );
+                    }
+                }
+
+                // Назначенные значения фильтров должны принадлежать группам
+                // КОРНЕВОЙ категории товара. Корень считаем по ТЕКУЩЕМУ
+                // category_id (а не из БД) — guard выполняется до updating-хука,
+                // и при смене категории pivot ещё не очищен.
+                $rootCategoryId = self::rootCategoryIdFor($product->category_id);
+
+                if ($rootCategoryId !== null) {
+                    $foreign = \Illuminate\Support\Facades\DB::table('filter_value_product as fvp')
+                        ->join('filter_values as fv', 'fv.id', '=', 'fvp.filter_value_id')
+                        ->join('filter_groups as fg', 'fg.id', '=', 'fv.filter_group_id')
+                        ->where('fvp.product_id', $product->getKey())
+                        ->where('fg.category_id', '!=', $rootCategoryId)
+                        ->exists();
+
+                    if ($foreign) {
+                        throw new InvalidArgumentException(
+                            'Значения фильтров должны принадлежать группам корневой категории товара.'
+                        );
+                    }
+                }
+            }
         });
+
+        // При смене категории назначенные значения фильтров становятся
+        // невалидными (они привязаны к корневой категории) — очищаем pivot,
+        // оператор назначает фильтры заново под новую категорию.
+        static::updating(function (self $product) {
+            if ($product->isDirty('category_id')) {
+                $product->filterValues()->detach();
+            }
+        });
+    }
+
+    /**
+     * Корневая категория (сама, если корневая, иначе её корень) — источник
+     * групп фильтров для товара.
+     */
+    public function rootCategory(): ?Category
+    {
+        $rootId = self::rootCategoryIdFor($this->category_id);
+
+        return $rootId !== null ? Category::find($rootId) : null;
+    }
+
+    /**
+     * ID корневой категории для заданного category_id (по текущему значению
+     * модели, а не из БД — важно для guard'ов при смене категории).
+     */
+    private static function rootCategoryIdFor(?int $categoryId): ?int
+    {
+        $current = $categoryId;
+
+        while ($current !== null) {
+            $parent = Category::query()
+                ->whereKey($current)
+                ->value('parent_id');
+
+            if ($parent === null) {
+                return $current;
+            }
+
+            $current = (int) $parent;
+        }
+
+        return null;
+    }
+
+    /**
+     * Группы фильтров корневой категории в виде «Группа => [id => значение]»
+     * — для группированного multiselect в форме товара.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public function filterOptionGroups(): array
+    {
+        $root = $this->rootCategory();
+
+        if ($root === null) {
+            return [];
+        }
+
+        return FilterGroup::query()
+            ->where('category_id', $root->id)
+            ->with('values')
+            ->get()
+            ->mapWithKeys(fn (FilterGroup $group) => [
+                $group->name => $group->values->pluck('value', 'id')->all(),
+            ])
+            ->all();
     }
 
     public function getSlugOptions(): SlugOptions
@@ -161,6 +273,8 @@ class Product extends Model
      */
     public function isHardDeletable(): bool
     {
-        return $this->status === ProductStatus::Draft && $this->images()->doesntExist();
+        return $this->status === ProductStatus::Draft
+            && $this->images()->doesntExist()
+            && $this->variants()->doesntExist();
     }
 }

@@ -28,9 +28,15 @@ class ProductController extends Controller
         ];
 
         if ($product->category) {
-            foreach ($product->category->breadcrumbs() as $crumb) {
-                $breadcrumbs[] = ['label' => $crumb->name, 'url' => '#'];
+            $crumbs = $product->category->breadcrumbs();
+
+            // Все кроме последнего
+            foreach ($crumbs->slice(0, count($crumbs) - 1) as $crumb) {
+                $breadcrumbs[] = ['label' => $crumb->name, 'url' => route('catalog.show', $crumb)];
             }
+
+            // Последний элемент отдельно
+            $breadcrumbs[] = ['label' => $crumbs->last()->name, 'url' => route('catalog.show', $crumbs->last())];
         }
 
         $breadcrumbs[] = ['label' => $product->name];

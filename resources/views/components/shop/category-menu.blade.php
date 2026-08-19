@@ -16,7 +16,7 @@
                     @if ($children->isNotEmpty()) @click="open = !open" @endif
                     class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700"
                 >
-                    <a href="#" class="flex-1" @if ($children->isNotEmpty()) @click.stop @endif>{{ $root->name }}</a>
+                    <a href="{{ route('catalog.show', $root) }}" class="flex-1" @if ($children->isNotEmpty()) @click.stop @endif>{{ $root->name }}</a>
 
                     @if ($children->isNotEmpty())
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -30,7 +30,7 @@
                     <ul x-show="open" x-transition class="bg-slate-50 pb-1" style="display: none;">
                         @foreach ($children as $child)
                             <li>
-                                <a href="#" class="block px-8 py-2 text-sm text-slate-600 hover:text-brand-700">
+                                <a href="{{ route('catalog.show', $child) }}" class="block px-8 py-2 text-sm text-slate-600 hover:text-brand-700">
                                     {{ $child->name }}
                                 </a>
                             </li>
