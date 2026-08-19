@@ -1,5 +1,15 @@
 @props(['slides'])
 
+@php
+    // Фоны слайдов задаём здесь, в blade (Tailwind v4 с source(none) сканирует
+    // только blade/js): классы, заданные в контроллере, в CSS не попадали —
+    // у hero-блока не было фона вообще. Сплошные цвета бренда, как у карточек.
+    $slideBackgrounds = [
+        'brand' => 'bg-brand-600',
+        'accent' => 'bg-accent-600',
+    ];
+@endphp
+
 <div x-data="{ active: 0, count: {{ count($slides) }} }" class="relative overflow-hidden rounded-xl">
     <div class="relative h-64 md:h-80">
         @foreach ($slides as $index => $slide)
@@ -8,7 +18,7 @@
                 x-transition:enter="transition ease-out duration-300"
                 x-transition:enter-start="opacity-0"
                 x-transition:enter-end="opacity-100"
-                class="absolute inset-0 flex items-center justify-between px-8 md:px-12 {{ $slide['class'] }}"
+                class="absolute inset-0 flex items-center justify-between px-8 md:px-12 {{ $slideBackgrounds[$slide['theme'] ?? 'brand'] }}"
                 style="{{ $index === 0 ? '' : 'display: none;' }}"
             >
                 <div class="max-w-md text-white">

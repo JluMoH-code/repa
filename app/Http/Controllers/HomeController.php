@@ -25,13 +25,13 @@ class HomeController extends Controller
                 'eyebrow' => 'Каталог семян',
                 'title' => 'Готовимся к новому сезону',
                 'subtitle' => 'Овощи, зелень и цветы для сада и огорода',
-                'class' => 'bg-gradient-to-r from-brand-600 to-brand-500',
+                'theme' => 'brand',
             ],
             [
                 'eyebrow' => 'Ассортимент растёт',
                 'title' => 'Каталог пополняется каждую неделю',
                 'subtitle' => 'Следите за новинками в разделе «Новинки»',
-                'class' => 'bg-gradient-to-r from-accent-600 to-accent-500',
+                'theme' => 'brand',
             ],
         ];
 
