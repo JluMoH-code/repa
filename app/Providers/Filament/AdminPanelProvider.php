@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Widgets\StatsOverview;
+use App\Filament\Widgets\WelcomeBanner;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -12,12 +13,14 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -30,6 +33,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             // Единый вход через Fortify (/login), отдельной страницы входа у панели нет.
             ->authGuard('web')
+            ->font('Inter')
             ->colors([
                 'primary' => Color::Hex('#16a34a'),
             ])
@@ -37,6 +41,21 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo(asset('images/repa-logo.svg'))
             ->brandLogoHeight('1.5rem')
             ->favicon(asset('images/repa-logo.svg'))
+            // Клик по логотипу/названию в сайдбаре ведёт на витрину.
+            ->homeUrl(fn () => route('storefront'))
+            // Точечные правки стиля под витрину (после CSS Filament).
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): HtmlString => new HtmlString('<style>
+                    .fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+                        background-color: var(--primary-50);
+                    }
+                    .fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-icon,
+                    .fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-label {
+                        color: var(--primary-700);
+                    }
+                </style>'),
+            )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -44,6 +63,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
+                WelcomeBanner::class,
                 StatsOverview::class,
                 AccountWidget::class,
             ])

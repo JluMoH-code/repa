@@ -3,7 +3,15 @@
     $price = number_format($product->price / 100, 0, ',', ' ');
     $oldPrice = $product->old_price ? number_format($product->old_price / 100, 0, ',', ' ') : null;
 @endphp
-<div style="max-width: 260px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; padding: 16px; font-family: Inter, Arial, sans-serif;">
+<a
+    href="{{ route('products.show', $product) }}"
+    target="_blank"
+    rel="noopener"
+    title="Открыть страницу товара"
+    style="max-width: 260px; display: inline-block; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; padding: 16px; font-family: Inter, Arial, sans-serif; text-decoration: none; transition: box-shadow .15s ease;"
+    onmouseover="this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,.1)'"
+    onmouseout="this.style.boxShadow='none'"
+>
     <div style="aspect-ratio: 1 / 1; border-radius: 8px; background: #f8fafc; display: flex; align-items: center; justify-content: center; overflow: hidden;">
         @if ($image)
             <img src="{{ Storage::disk('public')->url($image->path) }}" alt="{{ $product->name }}" style="width: 100%; height: 100%; object-fit: cover;">
@@ -26,7 +34,7 @@
         @endif
     </div>
 
-    <div style="margin-top: 12px; border-radius: 6px; background: #f1f5f9; color: #334155; text-align: center; padding: 8px 0; font-size: 14px; font-weight: 500;">
-        Купить
+    <div style="margin-top: 12px; border-radius: 6px; background: #16a34a; color: #fff; text-align: center; padding: 8px 0; font-size: 14px; font-weight: 500;">
+        Открыть товар
     </div>
-</div>
+</a>
