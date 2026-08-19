@@ -4,18 +4,21 @@ namespace App\Filament\Resources\Products\Tables;
 
 use App\Enums\ProductStatus;
 use App\Models\Category;
+use App\Models\FilterGroup;
 use App\Models\Product;
+use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ReplicateAction;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Schema;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
@@ -82,10 +85,23 @@ class ProductsTable
                 SelectFilter::make('status')
                     ->label('Статус')
                     ->options(ProductStatus::class),
+                SelectFilter::make('culture')
+                    ->label('Культура')
+                    ->options(Product::CULTURES)
+                    ->searchable(),
                 SelectFilter::make('manufacturer_id')
                     ->label('Производитель')
                     ->relationship('manufacturer', 'name')
                     ->searchable(),
+                TernaryFilter::make('in_stock')
+                    ->label('В наличии'),
+                TernaryFilter::make('old_price')
+                    ->label('Со скидкой')
+                    ->queries(
+                        true: fn ($query) => $query->whereNotNull('old_price'),
+                        false: fn ($query) => $query->whereNull('old_price'),
+                        blank: fn ($query) => $query,
+                    ),
             ])
             ->recordActions([
                 EditAction::make(),
@@ -147,7 +163,7 @@ class ProductsTable
                                         return [];
                                     }
 
-                                    return \App\Models\FilterGroup::query()
+                                    return FilterGroup::query()
                                         ->where('category_id', $roots->first()->id)
                                         ->with('values')
                                         ->get()
@@ -199,7 +215,86 @@ class ProductsTable
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('setPrice')
+                        ->label('Установить цену')
+                        ->schema([
+                            TextInput::make('price_rub')
+                                ->label('Новая цена, ₽')
+                                ->numeric()
+                                ->minValue(0)
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $price = (int) round(((float) $data['price_rub']) * 100);
+
+                            $records->each(function (Product $record) use ($price) {
+                                $record->update(['price' => $price, 'old_price' => null]);
+                            });
+
+                            Notification::make()
+                                ->title('Цена обновлена у '.$records->count().' товаров')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('applyDiscount')
+                        ->label('Скидка %')
+                        ->schema([
+                            TextInput::make('percent')
+                                ->label('Скидка, %')
+                                ->numeric()
+                                ->minValue(1)
+                                ->maxValue(90)
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $percent = (float) $data['percent'];
+
+                            $records->each(function (Product $record) use ($percent) {
+                                $old = $record->price;
+                                $record->update([
+                                    'price' => (int) round($old * (1 - $percent / 100)),
+                                    'old_price' => $old,
+                                ]);
+                            });
+
+                            Notification::make()
+                                ->title('Скидка применена к '.$records->count().' товарам')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
+                Action::make('export')
+                    ->label('Экспорт CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->action(function (Table $table) {
+                        $query = $table->getFilteredTableQuery();
+                        $filename = 'products-'.now()->format('Y-m-d-Hi').'.csv';
+
+                        return response()->streamDownload(function () use ($query) {
+                            $out = fopen('php://output', 'w');
+
+                            fputcsv($out, ['id', 'Название', 'Артикул', 'Категория', 'Цена (₽)', 'Статус', 'В наличии', 'Культура']);
+
+                            $query->chunk(500, function (Collection $products) use ($out) {
+                                foreach ($products as $product) {
+                                    fputcsv($out, [
+                                        $product->id,
+                                        $product->name,
+                                        $product->sku,
+                                        $product->category?->name,
+                                        number_format($product->price / 100, 2, '.', ''),
+                                        $product->status?->value,
+                                        $product->in_stock ? 'да' : 'нет',
+                                        $product->culture,
+                                    ]);
+                                }
+                            });
+
+                            fclose($out);
+                        }, $filename);
+                    }),
             ]);
     }
 }

@@ -36,17 +36,19 @@ config/route ломает тесты и валидацию форм).
 ## Структура
 - Роуты: `routes/web.php` (только web, `routes/api.php` отсутствует)
 - Контроллеры: `app/Http/Controllers` (Home, Catalog, Product, Cart, Cabinet, Favorites, DemoProductPage)
-- Модели: `app/Models` (Category, Manufacturer, Product, ProductImage, ProductVariant, FilterGroup, FilterValue, User, Cart, Favorite)
-- Enum'ы: `app/Enums` (ProductStatus, RipeningPeriod, GrowingPlace, Gender)
-- Fortify-actions: `app/Actions/Fortify`
-- Бизнес-логика корзины/избранного: `app/Actions/{Cart,Favorites}` (CartManager, FavoriteManager)
+- Модели: `app/Models` (Category, Manufacturer, Product, ProductImage, ProductVariant, FilterGroup, FilterValue, User, Cart, Favorite, Setting)
+- Enum'ы: `app/Enums` (ProductStatus, RipeningPeriod, GrowingPlace, Gender, UserRole)
+- Fortify-actions: `app/Actions/Fortify` (включая CheckIfUserIsBlocked)
+- Бизнес-логика корзины/избранного/настроек: `app/Actions/{Cart,Favorites,Settings}` (CartManager, FavoriteManager, SettingsManager)
 - Listeners: `app/Listeners` (MergeGuestDataOnLogin — перенос корзины и избранного при входе)
-- Админка Filament: `app/Filament/{Pages,Resources}` — ресурсы Categories/Manufacturers/Products
+- Middleware: `app/Http/Middleware` (EnsureUserIsAdmin — доступ в админку)
+- Responses: `app/Http/Responses` (LoginResponse/RegisterResponse — редирект по роли)
+- Админка Filament: `app/Filament/{Pages,Resources,Widgets}` — Категории, Производители, Товары, Фильтры, Пользователи, Импорт, Настройки магазина, дашборд со статистикой
 - Миграции: `database/migrations`; сидеры: `database/seeders/CatalogSeeder.php`
 - Тесты: `tests/Feature`, `tests/Unit`
 - Конфиги: `config/*.php` (без нестандартных пакет-конфигов)
 - Frontend: `resources/views` (Blade, включая `resources/views/filament`), `resources/js`, `resources/css`
-- Отсутствуют (не создавались на данном этапе): `app/Http/Middleware` (кастомные), `app/Http/Requests`, `app/Services`, `app/Repositories`, `app/Jobs`, `app/Events`, `app/Notifications`, `app/Mail`, `app/Policies`
+- Отсутствуют (не создавались на данном этапе): `app/Http/Requests`, `app/Services`, `app/Repositories`, `app/Jobs`, `app/Events`, `app/Notifications`, `app/Mail`, `app/Policies`
 
 ## Архитектурные правила
 - Бизнес-правила товара/категории реализованы как guard'ы в Eloquent-событиях
@@ -69,7 +71,7 @@ config/route ломает тесты и валидацию форм).
 - не удалять миграции;
 - не менять `vendor/`, `node_modules/`;
 - не добавлять тяжёлые зависимости (например, для XLSX-импорта) без явного запроса;
-- не ломать существующие тесты (70 зелёных в `tests/Feature`, `tests/Unit`);
+- не ломать существующие тесты (79 зелёных в `tests/Feature`, `tests/Unit`);
 - не трогать роут `/__dev_login` без явного запроса — временный dev-хелпер,
   известен и должен быть удалён перед продакшеном (см. docs/PROJECT_STATUS.md).
 

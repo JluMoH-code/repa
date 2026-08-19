@@ -7,17 +7,19 @@ use App\Enums\ProductStatus;
 use App\Enums\RipeningPeriod;
 use App\Models\Category;
 use App\Models\Product;
+use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\KeyValue;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
 class ProductForm
@@ -35,6 +37,14 @@ class ProductForm
                                     ->label('Название')
                                     ->required()
                                     ->live(onBlur: true)
+                                    ->hintAction(
+                                        Action::make('viewOnSite')
+                                            ->label('Смотреть на сайте')
+                                            ->icon('heroicon-o-arrow-top-right-on-square')
+                                            ->url(fn (?Product $record) => $record ? route('products.show', $record) : '#')
+                                            ->openUrlInNewTab()
+                                            ->visible(fn (?Product $record) => $record !== null)
+                                    )
                                     ->afterStateUpdated(function (string $operation, $state, callable $set) {
                                         if ($operation === 'create') {
                                             $set('slug', Str::slug($state));
@@ -82,6 +92,9 @@ class ProductForm
                                 TextInput::make('price')
                                     ->label('Цена')
                                     ->helperText('В копейках, например 15000 = 150 ₽')
+                                    ->hint(fn ($state) => $state !== null && $state !== '' && is_numeric($state)
+                                        ? '≈ '.number_format((float) $state / 100, 2, ',', ' ').' ₽'
+                                        : null)
                                     ->numeric()
                                     ->minValue(0)
                                     ->required(),
@@ -240,6 +253,15 @@ class ProductForm
                                     ->label('SEO-описание')
                                     ->rows(3)
                                     ->columnSpanFull(),
+                            ]),
+
+                        Tab::make('Превью')
+                            ->schema([
+                                Placeholder::make('preview')
+                                    ->label('')
+                                    ->content(fn (?Product $record) => $record
+                                        ? new HtmlString(view('filament.product-preview', ['product' => $record])->render())
+                                        : 'Сохраните товар, чтобы увидеть, как карточка выглядит на витрине.'),
                             ]),
                     ]),
             ]);

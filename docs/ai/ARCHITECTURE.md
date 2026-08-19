@@ -23,13 +23,20 @@ Mixed: Blade + Livewire (публичные страницы каталога) +
 - Личный кабинет: `/cabinet` (обзор, профиль с телефоном/датой рождения/полом,
   смена пароля, заглушка «Мои заказы»), избранное — `FavoriteManager`
   (сессия/таблица `favorites`), сердечко на карточках, страница избранного
+- Админка (Filament v5): единый вход через Fortify (админ → `/admin`,
+  покупатель → `/cabinet`, роль `UserRole` + `EnsureUserIsAdmin`), тема
+  в цветах бренда, дашборд со статистикой, ресурсы Категории/Производители/
+  Товары/Фильтры/Пользователи, страницы Импорт и Настройки магазина
+  (`SettingsManager`, значения в футере витрины), блокировка входа
+  (`CheckIfUserIsBlocked`)
 
 ## HTTP-слой
 - Роуты: `routes/web.php` — только web-роуты (`/`, `/product/{product}`,
   `/catalog/{category}`, `/cart` + POST `/cart/add|update|remove|clear`,
   `/cabinet*` под `auth`, POST `/favorites/toggle|remove`, `/demo/product`,
-  временный `/__dev_login`)
-- Middleware: стандартные Laravel, кастомных в `app/Http/Middleware` нет
+  временный `/__dev_login`); админка — роуты панели Filament (`/admin*`)
+- Middleware: стандартные Laravel + `app/Http/Middleware/EnsureUserIsAdmin`
+  (доступ в панель только администраторам, покупатель — в кабинет)
 - Контроллеры: `app/Http/Controllers` — HomeController, CatalogController,
   ProductController, CartController, CabinetController, FavoritesController,
   DemoProductPageController (тонкие, без FormRequest)
@@ -39,13 +46,14 @@ Mixed: Blade + Livewire (публичные страницы каталога) +
 ## Доменная логика
 - Services/Repositories: отсутствуют как отдельный слой
 - Actions: `app/Actions/Fortify` — actions создания/обновления пользователя
-  (включая поля профиля), сброса/смены пароля (стандартный паттерн Fortify);
-  `app/Actions/Cart/CartManager` и `app/Actions/Favorites/FavoriteManager` —
-  вся бизнес-логика корзины/избранного (add/remove/toggle/count/merge и т.д.),
-  FavoriteManager — singleton (кэш ID на время запроса против N+1)
+  (включая поля профиля), сброса/смены пароля, шаг пайплайна входа
+  `CheckIfUserIsBlocked`; `app/Actions/{Cart,Favorites,Settings}` —
+  CartManager/FavoriteManager/SettingsManager (singleton'ы с кэшем на запрос)
 - Listeners: `app/Listeners/MergeGuestDataOnLogin` — перенос гостевых корзины
   и избранного в данные пользователя при входе (событие
   `Illuminate\Auth\Events\Login`, авто-регистрация сканированием `app/Listeners`)
+- Responses: `app/Http/Responses/LoginResponse` и `RegisterResponse` —
+  редирект после входа/регистрации по роли
 - Бизнес-правила реализованы как guard'ы в Eloquent-событиях моделей
   (`saving`, `deleting`) — например, запрет отрицательной цены, запрет
   удаления непустой категории, ограничение `quantity` позиции корзины 1..99
