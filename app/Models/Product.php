@@ -132,7 +132,7 @@ class Product extends Model
                     ->max('price');
 
                 if ($maxVariantPrice > 0) {
-                    if ($maxVariantPrice > $product->price) {
+                    if ($product->price > $maxVariantPrice) {
                         throw new InvalidArgumentException(
                             'Основная цена товара должна быть не выше максимальной цены варианта.'
                         );
@@ -147,8 +147,10 @@ class Product extends Model
 
                 // Назначенные значения фильтров должны принадлежать группам
                 // КОРНЕВОЙ категории товара. Корень считаем по ТЕКУЩЕМУ
-                // category_id (а не из БД) — guard выполняется до updating-хука,
-                // и при смене категории pivot ещё не очищен.
+                // category_id (а не из БД) — guard выполняется до updating-хука.
+                // При смене категории pivot будет очищен в updating-хуке, поэтому
+                // проверку пропускаем (иначе guard сработает раньше очистки).
+                if (! $product->isDirty('category_id')) {
                     $rootCategoryId = self::rootCategoryIdFor($product->category_id);
 
                     if ($rootCategoryId !== null) {
@@ -164,6 +166,7 @@ class Product extends Model
                                 'Значения фильтров должны принадлежать группам корневой категории товара.'
                             );
                         }
+                    }
                 }
             }
         });

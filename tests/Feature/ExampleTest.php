@@ -2,18 +2,25 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\Category;
+use App\Models\Product;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
+    use RefreshDatabase;
+
     /**
-     * A basic test example.
+     * Главная страница витрины отдаёт 200 и показывает каталог.
      */
     public function test_the_application_returns_a_successful_response(): void
     {
-        $response = $this->get('/');
+        $category = Category::factory()->create(['is_active' => true]);
+        Product::factory()->published()->create(['category_id' => $category->id]);
 
-        $response->assertStatus(200);
+        $this->get('/')
+            ->assertStatus(200)
+            ->assertSee('Хиты продаж');
     }
 }

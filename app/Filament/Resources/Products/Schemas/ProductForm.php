@@ -184,7 +184,7 @@ class ProductForm
                                     ->label('Значения фильтров')
                                     ->helperText('Значения из групп фильтров корневой категории. Назначаются для фильтрации в каталоге.')
                                     ->multiple()
-                                    ->options(fn (Product $record) => $record->filterOptionGroups())
+                                    ->options(fn (?Product $record) => $record?->filterOptionGroups() ?? [])
                                     ->searchable()
                                     ->preload()
                                     ->native(false)
