@@ -119,6 +119,43 @@ async function removeFromCart(productId, onSuccess = null) {
     return false;
 }
 
+/**
+ * Синхронизация состояния корзины после возврата «назад» (bfcache):
+ * браузер восстанавливает страницу из кэша со старым DOM (кнопка «Купить»,
+ * старый счётчик в шапке), поэтому подтягиваем актуальные количества
+ * с сервера и оповещаем страницу событием `cart-synced`.
+ */
+async function syncCartState() {
+    let payload = {};
+    try {
+        const response = await fetch('/cart/quantities', { headers: { Accept: 'application/json' } });
+        payload = await response.json();
+    } catch (error) {
+        return;
+    }
+
+    if (typeof payload.count === 'number') {
+        updateCartCounter(payload.count);
+    }
+
+    window.dispatchEvent(new CustomEvent('cart-synced', { detail: payload }));
+}
+
+// bfcache: страница, восстановленная кнопкой «назад», показывает старое
+// состояние корзины — синхронизируем (страницу корзины перезагружаем целиком,
+// её DOM сложно точечно обновить).
+window.addEventListener('pageshow', (event) => {
+    if (! event.persisted) return;
+
+    if (document.getElementById('cart-page')) {
+        window.location.reload();
+
+        return;
+    }
+
+    syncCartState();
+});
+
 // Инициализация страницы корзины: перехватываем формы update/remove/clear
 // и обновляем суммы на странице без перезагрузки.
 function initCartPage() {
@@ -199,7 +236,7 @@ function initCartPage() {
 }
 
 window.addToCart = addToCart;
-window.dshCart = { addToCart, updateCartQuantity, removeFromCart, updateCartCounter, toast };
+window.dshCart = { addToCart, updateCartQuantity, removeFromCart, syncCartState, updateCartCounter, toast };
 
 export { cartRequest, toast, updateCartCounter, formatPrice };
 

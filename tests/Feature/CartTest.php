@@ -182,6 +182,25 @@ class CartTest extends TestCase
         $this->assertSame(0, $cart->quantity($product->id));
     }
 
+    public function test_quantities_endpoint_returns_actual_cart_state(): void
+    {
+        $productA = $this->product(['price' => 15000]);
+        $productB = $this->product(['price' => 10000]);
+
+        $this->postJson(route('cart.add'), ['product_id' => $productA->id, 'quantity' => 2])->assertOk();
+        $this->postJson(route('cart.add'), ['product_id' => $productB->id, 'quantity' => 1])->assertOk();
+
+        $this->getJson(route('cart.quantities'))
+            ->assertOk()
+            ->assertJson([
+                'quantities' => [
+                    (string) $productA->id => 2,
+                    (string) $productB->id => 1,
+                ],
+                'count' => 3,
+            ]);
+    }
+
     public function test_product_card_shows_quantity_in_cart_instead_of_buy_button(): void
     {
         $product = $this->product(['name' => 'Томаты «Бычье сердце»']);
@@ -190,7 +209,7 @@ class CartTest extends TestCase
         $this->get(route('storefront'))
             ->assertOk()
             ->assertSee('inCart: 2', false)
-            ->assertSee('в корзине');
+            ->assertSee('Перейти в корзину');
     }
 
     public function test_product_card_shows_buy_button_when_product_not_in_cart(): void

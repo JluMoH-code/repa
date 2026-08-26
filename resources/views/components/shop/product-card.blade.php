@@ -34,6 +34,7 @@
         },
         @endif
     }"
+    @cart-synced.window="inCart = $event.detail.quantities[{{ $product->id }}] ?? 0"
     class="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md"
 >
     <a href="{{ route('products.show', $product) }}" class="relative mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-slate-50">
@@ -102,9 +103,9 @@
                 </button>
             </template>
 
-            {{-- Товар в корзине: количество с шагами −/+ и ссылкой на корзину --}}
+            {{-- Товар в корзине: количество в одну строку (иконка корзины + счётчик) --}}
             <template x-if="inCart">
-                <div class="flex flex-1 items-center justify-between gap-1 rounded-md border border-accent-300 bg-accent-50 px-1.5 py-1">
+                <div class="flex flex-1 items-center justify-between gap-0.5 rounded-md border border-accent-300 bg-accent-50 px-1 py-1">
                     <button
                         type="button"
                         @click="decrease()"
@@ -113,11 +114,13 @@
                     >−</button>
                     <a
                         href="{{ route('cart.index') }}"
-                        class="flex min-w-0 flex-1 flex-col items-center leading-tight"
+                        class="flex min-w-0 items-center justify-center gap-1 px-0.5"
                         title="Перейти в корзину"
                     >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-3.5 shrink-0 text-accent-600">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.836l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.994-4.708 2.602-7.201.245-1.007-.44-2.049-1.4-2.049H5.106M7.5 14.25 5.106 5.25M6 18.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                        </svg>
                         <span class="text-sm font-bold text-accent-700" x-text="inCart"></span>
-                        <span class="text-[10px] text-accent-600/80">в корзине</span>
                     </a>
                     <button
                         type="button"

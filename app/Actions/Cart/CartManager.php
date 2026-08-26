@@ -253,10 +253,12 @@ class CartManager
     /**
      * Текущие количества по product_id (сессия или БД).
      * Кэшируются на время запроса — см. singleton в AppServiceProvider.
+     * Используется шапкой, карточками товаров и эндпоинтом синхронизации
+     * корзины при возврате «назад» (bfcache).
      *
      * @return array<int, int>
      */
-    private function quantities(): array
+    public function quantities(): array
     {
         if ($this->quantitiesCache !== null) {
             return $this->quantitiesCache;

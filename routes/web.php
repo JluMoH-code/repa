@@ -28,6 +28,7 @@ Route::get('/demo/product', [DemoProductPageController::class, 'show'])->name('d
 
 // Корзина
 Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+Route::get('/cart/quantities', [CartController::class, 'quantities'])->name('cart.quantities');
 Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
 Route::post('/cart/update', [CartController::class, 'update'])->name('cart.update');
 Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');

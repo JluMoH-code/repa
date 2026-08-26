@@ -135,6 +135,20 @@ class CartController extends Controller
     }
 
     /**
+     * Актуальное состояние корзины (количества по product_id + итоги).
+     * Используется фронтендом при возврате «назад» (bfcache-восстановление
+     * страницы со старым DOM) для синхронизации карточек товаров и шапки.
+     */
+    public function quantities(): JsonResponse
+    {
+        return response()->json([
+            'quantities' => $this->cart->quantities(),
+            'count' => $this->cart->count(),
+            'total' => $this->cart->total(),
+        ]);
+    }
+
+    /**
      * @return array<string, string>
      */
     private function messages(): array

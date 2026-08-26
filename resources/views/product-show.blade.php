@@ -73,6 +73,7 @@
                                 }
                             },
                         }"
+                        @cart-synced.window="inCart = $event.detail.quantities[{{ $product->id }}] ?? 0"
                         class="flex flex-wrap items-center gap-3"
                     >
                         @if ($available)
