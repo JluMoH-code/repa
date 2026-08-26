@@ -30,6 +30,14 @@ jobs:
       # в CI нет БД и .env — очистка кэша с database-хранилищем упала бы,
       # поэтому используем array-хранилище (cache:clear становится no-op).
       - run: CACHE_STORE=array php artisan optimize:clear
+      # страницы рендерятся через @vite: тестам нужен manifest (public/build).
+      # vendor уже стоит (шаг выше) — vite импортирует CSS Filament из vendor.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - run: php artisan test
 
   frontend:
