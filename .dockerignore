@@ -18,3 +18,12 @@ phpunit.xml
 _ide_helper.php
 Homestead.json
 Homestead.yaml
+
+# Локально сгенерированные кэши (Laravel/Filament) не должны попадать в образ:
+# они запекают локальные настройки и dev-провайдеры (например, laravel/pail).
+bootstrap/cache/*
+!bootstrap/cache/.gitignore
+storage/framework/*
+!storage/framework/.gitignore
+storage/logs/*
+!storage/logs/.gitignore
