@@ -7,20 +7,21 @@
 # ============================================================================
 
 # --- Стадия 1: PHP-зависимости (vendor, без dev, без скриптов) ---------------
+# composer:2 — alpine-база, пакеты ставим через apk. Расширения нужны для
+# platform-проверки composer (Filament требует ext-intl и др.).
 FROM composer:2 AS vendor
 WORKDIR /app
-# Расширения нужны для platform-проверки composer (Filament требует ext-intl и др.).
-RUN apt-get update && apt-get install -y \
-    libicu-dev \
-    libpq-dev \
-    libzip-dev \
-    libpng-dev \
-    libjpeg62-turbo-dev \
-    libfreetype6-dev \
-    libonig-dev \
+RUN apk add --no-cache \
+        icu-dev \
+        postgresql-dev \
+        zlib-dev \
+        libpng-dev \
+        libjpeg-turbo-dev \
+        freetype-dev \
+        libzip-dev \
+        oniguruma-dev \
     && docker-php-ext-configure gd --with-jpeg --with-freetype \
-    && docker-php-ext-install intl zip gd bcmath mbstring exif pcntl pdo_pgsql pgsql \
-    && rm -rf /var/lib/apt/lists/*
+    && docker-php-ext-install intl zip gd bcmath mbstring exif pcntl pdo_pgsql pgsql
 COPY composer.json composer.lock ./
 RUN composer install \
       --no-dev \
