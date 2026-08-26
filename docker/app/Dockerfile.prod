@@ -9,6 +9,18 @@
 # --- Стадия 1: PHP-зависимости (vendor, без dev, без скриптов) ---------------
 FROM composer:2 AS vendor
 WORKDIR /app
+# Расширения нужны для platform-проверки composer (Filament требует ext-intl и др.).
+RUN apt-get update && apt-get install -y \
+    libicu-dev \
+    libpq-dev \
+    libzip-dev \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libonig-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-freetype \
+    && docker-php-ext-install intl zip gd bcmath mbstring exif pcntl pdo_pgsql pgsql \
+    && rm -rf /var/lib/apt/lists/*
 COPY composer.json composer.lock ./
 RUN composer install \
       --no-dev \
@@ -77,9 +89,9 @@ RUN mkdir -p \
     && chmod -R 775 storage bootstrap/cache
 
 # Служебные шаги Laravel/Filament без обращения к БД.
-# APP_KEY — заглушка только для boot'а artisan на этапе сборки;
-# в рантайме значение приходит из env_file (/srv/repa/.env на сервере).
-ENV APP_KEY=base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=
+# APP_KEY — заглушка только для boot'а artisan на этапе сборки (ARG не попадает
+# в образ); в рантайме значение приходит из env_file (/srv/repa/.env на сервере).
+ARG APP_KEY=base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=
 RUN php artisan package:discover --ansi \
     && php artisan filament:upgrade --no-interaction \
     && php artisan storage:link \
