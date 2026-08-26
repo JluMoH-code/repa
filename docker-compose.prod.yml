@@ -1,0 +1,69 @@
+# Production-стек: образы тянутся из GHCR (собирает GitHub Actions),
+# на сервере ничего не собирается. Код в образе, .env — только на сервере
+# (env_file). Storage — в named volume (загрузки переживают пересоздание).
+
+name: repa
+
+services:
+  app:
+    image: ghcr.io/jlumoh-code/repa-app:${APP_TAG:-latest}
+    container_name: seedshop-app
+    restart: unless-stopped
+    user: "www-data:www-data"
+    working_dir: /var/www/html
+    env_file: /srv/repa/.env
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - seedshop
+
+  nginx:
+    image: ghcr.io/jlumoh-code/repa-nginx:${APP_TAG:-latest}
+    container_name: seedshop-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      - app
+    networks:
+      - seedshop
+
+  postgres:
+    image: ghcr.io/jlumoh-code/repa-postgres:${APP_TAG:-latest}
+    container_name: seedshop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-repa}
+      POSTGRES_USER: ${DB_USERNAME:-repa}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD не задан в /srv/repa/.env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - seedshop
+
+  redis:
+    image: ghcr.io/jlumoh-code/repa-redis:${APP_TAG:-latest}
+    container_name: seedshop-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - seedshop
+
+networks:
+  seedshop:
+    driver: bridge
+
+volumes:
+  storage_data:
+  postgres_data:
+  redis_data:

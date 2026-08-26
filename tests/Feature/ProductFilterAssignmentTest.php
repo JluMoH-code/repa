@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProductStatus;
 use App\Models\Category;
 use App\Models\FilterGroup;
 use App\Models\FilterValue;
@@ -39,7 +40,7 @@ class ProductFilterAssignmentTest extends TestCase
         $rootB = Category::factory()->create();
         $foreignValue = $this->makeValueForRoot($rootB);
 
-        $product = Product::factory()->create(['category_id' => $rootA->id, 'status' => \App\Enums\ProductStatus::Published]);
+        $product = Product::factory()->create(['category_id' => $rootA->id, 'status' => ProductStatus::Published]);
 
         $product->filterValues()->attach($foreignValue->id);
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\FilterGroupFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,7 @@ use Spatie\Sluggable\SlugOptions;
 
 class FilterGroup extends Model
 {
-    /** @use HasFactory<\Database\Factories\FilterGroupFactory> */
+    /** @use HasFactory<FilterGroupFactory> */
     use HasFactory, HasSlug;
 
     protected $fillable = ['category_id', 'name', 'slug', 'sort_order'];
