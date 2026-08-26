@@ -33,6 +33,18 @@ config/route ломает тесты и валидацию форм).
 
 После `composer require` / нового PHP-класса: `docker compose exec app composer dump-autoload -o`.
 
+## Workflow (обязательно)
+- Все изменения — в отдельной ветке от актуального `main`
+  (`git checkout main && git pull && git checkout -b <тема>`);
+  **прямой пуш в `main` запрещён**.
+- В `main` изменения попадают **только через Pull Request** с зелёным CI
+  (джобы `tests` и `frontend` в `.github/workflows/ci-cd.yml`).
+- После merge ветка удаляется; следующая ветка создаётся от обновлённого `main`.
+- Merge в `main` автоматически запускает сборку образов (публикация в GHCR) и
+  деплой на сервер — сервер сам тянет образы, прогоняет миграции и поднимает
+  контейнеры (см. `docs/ai/DEPLOY.md`). Вмешательство на сервере не требуется.
+- Это же правило действует для изменений документации и CI/CD-конфигов.
+
 ## Структура
 - Роуты: `routes/web.php` (только web, `routes/api.php` отсутствует)
 - Контроллеры: `app/Http/Controllers` (Home, Catalog, Product, Cart, Cabinet, Favorites, DemoProductPage)
@@ -71,7 +83,7 @@ config/route ломает тесты и валидацию форм).
 - не удалять миграции;
 - не менять `vendor/`, `node_modules/`;
 - не добавлять тяжёлые зависимости (например, для XLSX-импорта) без явного запроса;
-- не ломать существующие тесты (79 зелёных в `tests/Feature`, `tests/Unit`);
+- не ломать существующие тесты (81 зелёный в `tests/Feature`, `tests/Unit`);
 - не трогать роут `/__dev_login` без явного запроса — временный dev-хелпер,
   известен и должен быть удалён перед продакшеном (см. docs/PROJECT_STATUS.md).
 
