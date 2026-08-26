@@ -230,7 +230,7 @@ class CartTest extends TestCase
         $this->get(route('products.show', $product))
             ->assertOk()
             ->assertSee('inCart: 3', false)
-            ->assertSee('В корзине — перейти');
+            ->assertSee('В корзине');
     }
 
     public function test_guest_can_clear_cart(): void

@@ -112,32 +112,35 @@
                                 </div>
                             </template>
 
-                            {{-- Товар уже в корзине: количество в корзине + ссылка на корзину --}}
+                            {{-- Товар уже в корзине: компактный блок «В корзине» (количество + переход) --}}
                             <template x-if="inCart">
-                                <div class="flex flex-wrap items-center gap-3">
+                                <div class="inline-flex items-center gap-3 whitespace-nowrap">
                                     <div class="inline-flex items-center rounded-md border border-accent-300 bg-accent-50">
                                         <button
                                             type="button"
                                             @click="decrease()"
-                                            class="flex size-10 items-center justify-center text-accent-700 transition-colors hover:bg-accent-100"
+                                            class="flex size-9 items-center justify-center text-accent-700 transition-colors hover:bg-accent-100"
                                             aria-label="Уменьшить количество в корзине"
                                         >−</button>
                                         <span
-                                            class="w-14 border-x border-accent-200 py-2 text-center text-sm font-semibold text-accent-700"
+                                            class="w-10 border-x border-accent-200 py-2 text-center text-sm font-semibold text-accent-700"
                                             x-text="inCart"
                                         ></span>
                                         <button
                                             type="button"
                                             @click="increase()"
-                                            class="flex size-10 items-center justify-center text-accent-700 transition-colors hover:bg-accent-100"
+                                            class="flex size-9 items-center justify-center text-accent-700 transition-colors hover:bg-accent-100"
                                             aria-label="Увеличить количество в корзине"
                                         >+</button>
                                     </div>
                                     <a
                                         href="{{ route('cart.index') }}"
-                                        class="rounded-md bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                                        class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
                                     >
-                                        В корзине — перейти
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                                        </svg>
+                                        В корзине
                                     </a>
                                 </div>
                             </template>

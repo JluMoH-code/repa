@@ -120,10 +120,10 @@ async function removeFromCart(productId, onSuccess = null) {
 }
 
 /**
- * Синхронизация состояния корзины после возврата «назад» (bfcache):
- * браузер восстанавливает страницу из кэша со старым DOM (кнопка «Купить»,
- * старый счётчик в шапке), поэтому подтягиваем актуальные количества
- * с сервера и оповещаем страницу событием `cart-synced`.
+ * Синхронизация состояния корзины с сервером: браузер при возврате «назад»
+ * может восстановить страницу из bfcache или из HTTP-кэша со старым DOM
+ * (кнопка «Купить», старый счётчик), поэтому всегда подтягиваем актуальные
+ * количества и оповещаем страницу событием `cart-synced`.
  */
 async function syncCartState() {
     let payload = {};
@@ -138,22 +138,30 @@ async function syncCartState() {
         updateCartCounter(payload.count);
     }
 
+    if (! payload.quantities || typeof payload.quantities !== 'object') {
+        return;
+    }
+
     window.dispatchEvent(new CustomEvent('cart-synced', { detail: payload }));
 }
 
-// bfcache: страница, восстановленная кнопкой «назад», показывает старое
-// состояние корзины — синхронизируем (страницу корзины перезагружаем целиком,
-// её DOM сложно точечно обновить).
-window.addEventListener('pageshow', (event) => {
-    if (! event.persisted) return;
-
+// Возврат «назад»: страница может прийти из bfcache/HTTP-кэша со старым
+// состоянием корзины. Синхронизируем всегда (страницу корзины перезагружаем
+// целиком — её DOM точечно обновлять сложно). Небольшая задержка нужна, чтобы
+// Alpine успел навесить слушатели cart-synced.
+window.addEventListener('pageshow', () => {
     if (document.getElementById('cart-page')) {
         window.location.reload();
 
         return;
     }
 
-    syncCartState();
+    setTimeout(syncCartState, 50);
+});
+
+// Возврат на вкладку: корзина могла измениться в другой вкладке.
+window.addEventListener('focus', () => {
+    setTimeout(syncCartState, 50);
 });
 
 // Инициализация страницы корзины: перехватываем формы update/remove/clear
