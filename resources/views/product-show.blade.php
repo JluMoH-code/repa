@@ -52,39 +52,94 @@
                         $available = $product->variants->isNotEmpty()
                             ? $product->variants->contains('in_stock', true)
                             : $product->in_stock;
+                        $cartQuantity = app(\App\Actions\Cart\CartManager::class)->quantity($product->id);
                     @endphp
 
-                    <div x-data="{ qty: 1 }" class="flex flex-wrap items-center gap-3">
-                        <div class="inline-flex items-center rounded-md border border-slate-300 bg-white">
-                            <button
-                                type="button"
-                                @click="qty = Math.max(1, qty - 1)"
-                                class="flex size-10 items-center justify-center text-slate-500 hover:bg-slate-100"
-                                aria-label="Уменьшить количество"
-                            >−</button>
-                            <input
-                                type="number"
-                                x-model.number="qty"
-                                min="1"
-                                max="99"
-                                class="w-14 border-x border-slate-300 py-2 text-center text-sm focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                            >
-                            <button
-                                type="button"
-                                @click="qty = Math.min(99, qty + 1)"
-                                class="flex size-10 items-center justify-center text-slate-500 hover:bg-slate-100"
-                                aria-label="Увеличить количество"
-                            >+</button>
-                        </div>
-
+                    <div
+                        x-data="{
+                            qty: 1,
+                            inCart: {{ $cartQuantity }},
+                            buy() {
+                                addToCart({{ $product->id }}, this.qty, (payload) => { this.inCart = payload.quantity; });
+                            },
+                            increase() {
+                                addToCart({{ $product->id }}, 1, (payload) => { this.inCart = payload.quantity; });
+                            },
+                            decrease() {
+                                if (this.inCart <= 1) {
+                                    removeFromCart({{ $product->id }}, (payload) => { this.inCart = payload.quantity ?? 0; });
+                                } else {
+                                    updateCartQuantity({{ $product->id }}, this.inCart - 1, (payload) => { this.inCart = payload.quantity; });
+                                }
+                            },
+                        }"
+                        class="flex flex-wrap items-center gap-3"
+                    >
                         @if ($available)
-                            <button
-                                type="button"
-                                @click="addToCart({{ $product->id }}, qty)"
-                                class="rounded-md bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
-                            >
-                                В корзину
-                            </button>
+                            {{-- Товара нет в корзине: выбор количества + кнопка «В корзину» --}}
+                            <template x-if="! inCart">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <div class="inline-flex items-center rounded-md border border-slate-300 bg-white">
+                                        <button
+                                            type="button"
+                                            @click="qty = Math.max(1, qty - 1)"
+                                            class="flex size-10 items-center justify-center text-slate-500 hover:bg-slate-100"
+                                            aria-label="Уменьшить количество"
+                                        >−</button>
+                                        <input
+                                            type="number"
+                                            x-model.number="qty"
+                                            min="1"
+                                            max="99"
+                                            class="w-14 border-x border-slate-300 py-2 text-center text-sm focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                        >
+                                        <button
+                                            type="button"
+                                            @click="qty = Math.min(99, qty + 1)"
+                                            class="flex size-10 items-center justify-center text-slate-500 hover:bg-slate-100"
+                                            aria-label="Увеличить количество"
+                                        >+</button>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        @click="buy()"
+                                        class="rounded-md bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+                                    >
+                                        В корзину
+                                    </button>
+                                </div>
+                            </template>
+
+                            {{-- Товар уже в корзине: количество в корзине + ссылка на корзину --}}
+                            <template x-if="inCart">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <div class="inline-flex items-center rounded-md border border-accent-300 bg-accent-50">
+                                        <button
+                                            type="button"
+                                            @click="decrease()"
+                                            class="flex size-10 items-center justify-center text-accent-700 transition-colors hover:bg-accent-100"
+                                            aria-label="Уменьшить количество в корзине"
+                                        >−</button>
+                                        <span
+                                            class="w-14 border-x border-accent-200 py-2 text-center text-sm font-semibold text-accent-700"
+                                            x-text="inCart"
+                                        ></span>
+                                        <button
+                                            type="button"
+                                            @click="increase()"
+                                            class="flex size-10 items-center justify-center text-accent-700 transition-colors hover:bg-accent-100"
+                                            aria-label="Увеличить количество в корзине"
+                                        >+</button>
+                                    </div>
+                                    <a
+                                        href="{{ route('cart.index') }}"
+                                        class="rounded-md bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                                    >
+                                        В корзине — перейти
+                                    </a>
+                                </div>
+                            </template>
                         @else
                             <button
                                 type="button"

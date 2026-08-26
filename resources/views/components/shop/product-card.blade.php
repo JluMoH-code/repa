@@ -8,12 +8,24 @@
     $basePrice = $hasVariants ? $firstVariant->price : $product->price;
     $available = $hasVariants ? $variants->contains('in_stock', true) : $product->in_stock;
     $isFavorite = app(\App\Actions\Favorites\FavoriteManager::class)->has($product->id);
+    $cartQuantity = app(\App\Actions\Cart\CartManager::class)->quantity($product->id);
 @endphp
 
 <div
     x-data="{
         price: {{ $basePrice }},
         available: {{ $available ? 'true' : 'false' }},
+        inCart: {{ $cartQuantity }},
+        increase() {
+            addToCart({{ $product->id }}, 1, (payload) => { this.inCart = payload.quantity; });
+        },
+        decrease() {
+            if (this.inCart <= 1) {
+                removeFromCart({{ $product->id }}, (payload) => { this.inCart = payload.quantity ?? 0; });
+            } else {
+                updateCartQuantity({{ $product->id }}, this.inCart - 1, (payload) => { this.inCart = payload.quantity; });
+            }
+        },
         @if ($hasVariants)
         setVariant(id) {
             const variants = {{ Illuminate\Support\Js::from($variants->map(fn ($v) => ['id' => $v->id, 'price' => $v->price, 'in_stock' => $v->in_stock])) }};
@@ -77,15 +89,44 @@
         </div>
 
         <div class="mt-2 flex gap-2">
-            <button
-                type="button"
-                @click="addToCart({{ $product->id }})"
-                class="flex-1 rounded-md py-2 text-sm font-medium transition-colors"
-                :class="available ? 'bg-slate-100 text-slate-700 hover:bg-accent-500 hover:text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'"
-                :disabled="! available"
-            >
-                <span x-text="available ? 'Купить' : 'Нет в наличии'"></span>
-            </button>
+            {{-- Товара нет в корзине: кнопка «Купить» --}}
+            <template x-if="! inCart">
+                <button
+                    type="button"
+                    @click="increase()"
+                    class="flex-1 rounded-md py-2 text-sm font-medium transition-colors"
+                    :class="available ? 'bg-slate-100 text-slate-700 hover:bg-accent-500 hover:text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed'"
+                    :disabled="! available"
+                >
+                    <span x-text="available ? 'Купить' : 'Нет в наличии'"></span>
+                </button>
+            </template>
+
+            {{-- Товар в корзине: количество с шагами −/+ и ссылкой на корзину --}}
+            <template x-if="inCart">
+                <div class="flex flex-1 items-center justify-between gap-1 rounded-md border border-accent-300 bg-accent-50 px-1.5 py-1">
+                    <button
+                        type="button"
+                        @click="decrease()"
+                        class="flex size-7 shrink-0 items-center justify-center rounded text-accent-700 transition-colors hover:bg-accent-100"
+                        aria-label="Уменьшить количество в корзине"
+                    >−</button>
+                    <a
+                        href="{{ route('cart.index') }}"
+                        class="flex min-w-0 flex-1 flex-col items-center leading-tight"
+                        title="Перейти в корзину"
+                    >
+                        <span class="text-sm font-bold text-accent-700" x-text="inCart"></span>
+                        <span class="text-[10px] text-accent-600/80">в корзине</span>
+                    </a>
+                    <button
+                        type="button"
+                        @click="increase()"
+                        class="flex size-7 shrink-0 items-center justify-center rounded text-accent-700 transition-colors hover:bg-accent-100"
+                        aria-label="Увеличить количество в корзине"
+                    >+</button>
+                </div>
+            </template>
 
             <button
                 type="button"

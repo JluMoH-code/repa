@@ -59,16 +59,64 @@ function toast(message, type = 'success') {
 /**
  * Добавить товар в корзину (глобальная функция — используется в Alpine
  * на карточках товаров и странице товара).
+ *
+ * @param {number} productId
+ * @param {number} [quantity=1]
+ * @param {(payload: object) => void} [onSuccess] — вызывается после успешного
+ *   добавления с ответом сервера (содержит `quantity` — количество товара в корзине)
+ * @returns {Promise<boolean>}
  */
-async function addToCart(productId, quantity = 1) {
+async function addToCart(productId, quantity = 1, onSuccess = null) {
     const { ok, payload } = await cartRequest('/cart/add', { product_id: productId, quantity });
 
     if (ok && payload.success) {
         updateCartCounter(payload.count);
         toast(payload.message || 'Товар добавлен в корзину');
-    } else {
-        toast(payload.message || 'Не удалось добавить товар в корзину', 'error');
+        if (onSuccess) onSuccess(payload);
+
+        return true;
     }
+
+    toast(payload.message || 'Не удалось добавить товар в корзину', 'error');
+
+    return false;
+}
+
+/**
+ * Изменить количество позиции в корзине (для stepper'а на карточках/странице товара).
+ */
+async function updateCartQuantity(productId, quantity, onSuccess = null) {
+    const { ok, payload } = await cartRequest('/cart/update', { product_id: productId, quantity });
+
+    if (ok && payload.success) {
+        updateCartCounter(payload.count);
+        if (onSuccess) onSuccess(payload);
+
+        return true;
+    }
+
+    toast(payload.message || 'Не удалось обновить количество', 'error');
+
+    return false;
+}
+
+/**
+ * Удалить товар из корзины (для stepper'а на карточках/странице товара).
+ */
+async function removeFromCart(productId, onSuccess = null) {
+    const { ok, payload } = await cartRequest('/cart/remove', { product_id: productId });
+
+    if (ok && payload.success) {
+        updateCartCounter(payload.count);
+        toast(payload.message || 'Товар удалён из корзины');
+        if (onSuccess) onSuccess(payload);
+
+        return true;
+    }
+
+    toast(payload.message || 'Не удалось удалить товар', 'error');
+
+    return false;
 }
 
 // Инициализация страницы корзины: перехватываем формы update/remove/clear
@@ -151,7 +199,7 @@ function initCartPage() {
 }
 
 window.addToCart = addToCart;
-window.dshCart = { addToCart, updateCartCounter, toast };
+window.dshCart = { addToCart, updateCartQuantity, removeFromCart, updateCartCounter, toast };
 
 export { cartRequest, toast, updateCartCounter, formatPrice };
 
