@@ -2,6 +2,8 @@
 # на сервере ничего не собирается. Код в образе, .env — только на сервере
 # (env_file). Storage — в named volume (загрузки переживают пересоздание).
 
+name: repa
+
 services:
   app:
     image: ghcr.io/jlumoh-code/repa-app:${APP_TAG:-latest}
