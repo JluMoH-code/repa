@@ -59,17 +59,110 @@ function toast(message, type = 'success') {
 /**
  * Добавить товар в корзину (глобальная функция — используется в Alpine
  * на карточках товаров и странице товара).
+ *
+ * @param {number} productId
+ * @param {number} [quantity=1]
+ * @param {(payload: object) => void} [onSuccess] — вызывается после успешного
+ *   добавления с ответом сервера (содержит `quantity` — количество товара в корзине)
+ * @returns {Promise<boolean>}
  */
-async function addToCart(productId, quantity = 1) {
+async function addToCart(productId, quantity = 1, onSuccess = null) {
     const { ok, payload } = await cartRequest('/cart/add', { product_id: productId, quantity });
 
     if (ok && payload.success) {
         updateCartCounter(payload.count);
         toast(payload.message || 'Товар добавлен в корзину');
-    } else {
-        toast(payload.message || 'Не удалось добавить товар в корзину', 'error');
+        if (onSuccess) onSuccess(payload);
+
+        return true;
     }
+
+    toast(payload.message || 'Не удалось добавить товар в корзину', 'error');
+
+    return false;
 }
+
+/**
+ * Изменить количество позиции в корзине (для stepper'а на карточках/странице товара).
+ */
+async function updateCartQuantity(productId, quantity, onSuccess = null) {
+    const { ok, payload } = await cartRequest('/cart/update', { product_id: productId, quantity });
+
+    if (ok && payload.success) {
+        updateCartCounter(payload.count);
+        if (onSuccess) onSuccess(payload);
+
+        return true;
+    }
+
+    toast(payload.message || 'Не удалось обновить количество', 'error');
+
+    return false;
+}
+
+/**
+ * Удалить товар из корзины (для stepper'а на карточках/странице товара).
+ */
+async function removeFromCart(productId, onSuccess = null) {
+    const { ok, payload } = await cartRequest('/cart/remove', { product_id: productId });
+
+    if (ok && payload.success) {
+        updateCartCounter(payload.count);
+        toast(payload.message || 'Товар удалён из корзины');
+        if (onSuccess) onSuccess(payload);
+
+        return true;
+    }
+
+    toast(payload.message || 'Не удалось удалить товар', 'error');
+
+    return false;
+}
+
+/**
+ * Синхронизация состояния корзины с сервером: браузер при возврате «назад»
+ * может восстановить страницу из bfcache или из HTTP-кэша со старым DOM
+ * (кнопка «Купить», старый счётчик), поэтому всегда подтягиваем актуальные
+ * количества и оповещаем страницу событием `cart-synced`.
+ */
+async function syncCartState() {
+    let payload = {};
+    try {
+        const response = await fetch('/cart/quantities', { headers: { Accept: 'application/json' } });
+        payload = await response.json();
+    } catch (error) {
+        return;
+    }
+
+    if (typeof payload.count === 'number') {
+        updateCartCounter(payload.count);
+    }
+
+    if (! payload.quantities || typeof payload.quantities !== 'object') {
+        return;
+    }
+
+    window.dispatchEvent(new CustomEvent('cart-synced', { detail: payload }));
+}
+
+// Возврат «назад»: страница может прийти из bfcache/HTTP-кэша со старым
+// состоянием корзины. Синхронизируем всегда (страницу корзины перезагружаем
+// целиком — её DOM точечно обновлять сложно). Небольшая задержка нужна, чтобы
+// Alpine успел навесить слушатели cart-synced.
+window.addEventListener('pageshow', () => {
+    if (document.getElementById('cart-page')) {
+        window.location.reload();
+
+        return;
+    }
+
+    setTimeout(syncCartState, 50);
+});
+
+// Возврат на вкладку: корзина могла измениться в другой вкладке.
+window.addEventListener('focus', () => {
+    setTimeout(syncCartState, 50);
+});
 
 // Инициализация страницы корзины: перехватываем формы update/remove/clear
 // и обновляем суммы на странице без перезагрузки.
@@ -151,7 +244,7 @@ function initCartPage() {
 }
 
 window.addToCart = addToCart;
-window.dshCart = { addToCart, updateCartCounter, toast };
+window.dshCart = { addToCart, updateCartQuantity, removeFromCart, syncCartState, updateCartCounter, toast };
 
 export { cartRequest, toast, updateCartCounter, formatPrice };
 

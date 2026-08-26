@@ -16,10 +16,16 @@ use Illuminate\Support\Facades\Session;
  * - авторизованный — строки в таблице `carts` (одна строка на товар);
  * - при входе гостевая корзина сливается с корзиной пользователя
  *   (см. App\Listeners\MergeCartOnLogin).
+ *
+ * Регистрируется как singleton в AppServiceProvider: количества кэшируются
+ * на время запроса, чтобы шапка и карточки товаров не делали N+1 запросов.
  */
 class CartManager
 {
     private const SESSION_KEY = 'cart';
+
+    /** @var array<int, int>|null */
+    private ?array $quantitiesCache = null;
 
     public function __construct(private readonly AuthFactory $auth) {}
 
@@ -63,6 +69,7 @@ class CartManager
             $items = $this->sessionItems();
             $items[$product->id] = min(Cart::MAX_QUANTITY, ($items[$product->id] ?? 0) + $quantity);
             $this->saveSessionItems($items);
+            $this->forgetCache();
 
             return;
         }
@@ -73,6 +80,7 @@ class CartManager
         ]);
         $item->quantity = min(Cart::MAX_QUANTITY, ($item->exists ? $item->quantity : 0) + $quantity);
         $item->save();
+        $this->forgetCache();
     }
 
     /**
@@ -91,6 +99,7 @@ class CartManager
 
             $items[$product->id] = $quantity;
             $this->saveSessionItems($items);
+            $this->forgetCache();
 
             return;
         }
@@ -99,6 +108,7 @@ class CartManager
             ->where('user_id', $this->auth->id())
             ->where('product_id', $product->id)
             ->update(['quantity' => $quantity]);
+        $this->forgetCache();
     }
 
     /**
@@ -110,6 +120,7 @@ class CartManager
             $items = $this->sessionItems();
             unset($items[$productId]);
             $this->saveSessionItems($items);
+            $this->forgetCache();
 
             return;
         }
@@ -118,6 +129,7 @@ class CartManager
             ->where('user_id', $this->auth->id())
             ->where('product_id', $productId)
             ->delete();
+        $this->forgetCache();
     }
 
     /**
@@ -127,11 +139,22 @@ class CartManager
     {
         if ($this->isGuest()) {
             Session::forget(self::SESSION_KEY);
+            $this->forgetCache();
 
             return;
         }
 
         Cart::query()->where('user_id', $this->auth->id())->delete();
+        $this->forgetCache();
+    }
+
+    /**
+     * Количество единиц товара в корзине (0 — товара нет в корзине).
+     * Используется карточками товаров и страницей товара.
+     */
+    public function quantity(int $productId): int
+    {
+        return $this->quantities()[$productId] ?? 0;
     }
 
     /**
@@ -219,6 +242,7 @@ class CartManager
         }
 
         Session::forget(self::SESSION_KEY);
+        $this->forgetCache();
     }
 
     private function isGuest(): bool
@@ -228,19 +252,33 @@ class CartManager
 
     /**
      * Текущие количества по product_id (сессия или БД).
+     * Кэшируются на время запроса — см. singleton в AppServiceProvider.
+     * Используется шапкой, карточками товаров и эндпоинтом синхронизации
+     * корзины при возврате «назад» (bfcache).
      *
      * @return array<int, int>
      */
-    private function quantities(): array
+    public function quantities(): array
     {
-        if ($this->isGuest()) {
-            return $this->sessionItems();
+        if ($this->quantitiesCache !== null) {
+            return $this->quantitiesCache;
         }
 
-        return Cart::query()
-            ->where('user_id', $this->auth->id())
-            ->pluck('quantity', 'product_id')
-            ->all();
+        $quantities = $this->isGuest()
+            ? $this->sessionItems()
+            : Cart::query()
+                ->where('user_id', $this->auth->id())
+                ->pluck('quantity', 'product_id')
+                ->all();
+
+        $this->quantitiesCache = $quantities;
+
+        return $quantities;
+    }
+
+    private function forgetCache(): void
+    {
+        $this->quantitiesCache = null;
     }
 
     /**

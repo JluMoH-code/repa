@@ -57,7 +57,13 @@ class CartController extends Controller
 
         $this->cart->add($product, $data['quantity'] ?? 1);
 
-        return $this->respond($request, true, 'Товар добавлен в корзину.', lineTotal: $product->price * ($data['quantity'] ?? 1));
+        return $this->respond(
+            $request,
+            true,
+            'Товар добавлен в корзину.',
+            lineTotal: $product->price * ($data['quantity'] ?? 1),
+            quantity: $this->cart->quantity($product->id),
+        );
     }
 
     /**
@@ -87,6 +93,7 @@ class CartController extends Controller
             true,
             'Количество обновлено.',
             lineTotal: $product->price * $data['quantity'],
+            quantity: $this->cart->quantity($product->id),
         );
     }
 
@@ -109,7 +116,12 @@ class CartController extends Controller
 
         $this->cart->remove($data['product_id']);
 
-        return $this->respond($request, true, 'Товар удалён из корзины.');
+        return $this->respond(
+            $request,
+            true,
+            'Товар удалён из корзины.',
+            quantity: $this->cart->quantity($data['product_id']),
+        );
     }
 
     /**
@@ -120,6 +132,20 @@ class CartController extends Controller
         $this->cart->clear();
 
         return $this->respond($request, true, 'Корзина очищена.');
+    }
+
+    /**
+     * Актуальное состояние корзины (количества по product_id + итоги).
+     * Используется фронтендом при возврате «назад» (bfcache-восстановление
+     * страницы со старым DOM) для синхронизации карточек товаров и шапки.
+     */
+    public function quantities(): JsonResponse
+    {
+        return response()->json([
+            'quantities' => $this->cart->quantities(),
+            'count' => $this->cart->count(),
+            'total' => $this->cart->total(),
+        ]);
     }
 
     /**
@@ -171,6 +197,7 @@ class CartController extends Controller
         string $message,
         int $status = 200,
         ?int $lineTotal = null,
+        ?int $quantity = null,
     ): JsonResponse|RedirectResponse {
         $payload = [
             'success' => $success,
@@ -181,6 +208,12 @@ class CartController extends Controller
 
         if ($lineTotal !== null) {
             $payload['line_total'] = $lineTotal;
+        }
+
+        // Количество единиц конкретного товара в корзине — для карточек товаров
+        // и страницы товара (кнопка «Купить» → количество в корзине).
+        if ($quantity !== null) {
+            $payload['quantity'] = $quantity;
         }
 
         if ($request->expectsJson()) {

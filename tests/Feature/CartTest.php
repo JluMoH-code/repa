@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Actions\Cart\CartManager;
 use App\Models\Cart;
 use App\Models\Category;
 use App\Models\Product;
@@ -132,6 +133,104 @@ class CartTest extends TestCase
             ->assertJson(['success' => true, 'count' => 0, 'total' => 0]);
 
         $this->assertSame([], session('cart'));
+    }
+
+    public function test_add_response_includes_product_quantity_in_cart(): void
+    {
+        $product = $this->product(['price' => 10000]);
+
+        $this->postJson(route('cart.add'), ['product_id' => $product->id, 'quantity' => 2])
+            ->assertOk()
+            ->assertJson(['quantity' => 2]);
+
+        $this->postJson(route('cart.add'), ['product_id' => $product->id, 'quantity' => 1])
+            ->assertOk()
+            ->assertJson(['quantity' => 3]);
+    }
+
+    public function test_update_response_includes_product_quantity_in_cart(): void
+    {
+        $product = $this->product();
+        $this->postJson(route('cart.add'), ['product_id' => $product->id, 'quantity' => 2])->assertOk();
+
+        $this->postJson(route('cart.update'), ['product_id' => $product->id, 'quantity' => 5])
+            ->assertOk()
+            ->assertJson(['quantity' => 5]);
+    }
+
+    public function test_remove_response_includes_zero_quantity(): void
+    {
+        $product = $this->product();
+        $this->postJson(route('cart.add'), ['product_id' => $product->id, 'quantity' => 2])->assertOk();
+
+        $this->postJson(route('cart.remove'), ['product_id' => $product->id])
+            ->assertOk()
+            ->assertJson(['quantity' => 0]);
+    }
+
+    public function test_cart_manager_reports_quantity_of_product_in_cart(): void
+    {
+        $product = $this->product();
+        $cart = app(CartManager::class);
+
+        $this->assertSame(0, $cart->quantity($product->id));
+
+        $this->postJson(route('cart.add'), ['product_id' => $product->id, 'quantity' => 3])->assertOk();
+        $this->assertSame(3, $cart->quantity($product->id));
+
+        $this->postJson(route('cart.remove'), ['product_id' => $product->id])->assertOk();
+        $this->assertSame(0, $cart->quantity($product->id));
+    }
+
+    public function test_quantities_endpoint_returns_actual_cart_state(): void
+    {
+        $productA = $this->product(['price' => 15000]);
+        $productB = $this->product(['price' => 10000]);
+
+        $this->postJson(route('cart.add'), ['product_id' => $productA->id, 'quantity' => 2])->assertOk();
+        $this->postJson(route('cart.add'), ['product_id' => $productB->id, 'quantity' => 1])->assertOk();
+
+        $this->getJson(route('cart.quantities'))
+            ->assertOk()
+            ->assertJson([
+                'quantities' => [
+                    (string) $productA->id => 2,
+                    (string) $productB->id => 1,
+                ],
+                'count' => 3,
+            ]);
+    }
+
+    public function test_product_card_shows_quantity_in_cart_instead_of_buy_button(): void
+    {
+        $product = $this->product(['name' => 'Томаты «Бычье сердце»']);
+        $this->postJson(route('cart.add'), ['product_id' => $product->id, 'quantity' => 2])->assertOk();
+
+        $this->get(route('storefront'))
+            ->assertOk()
+            ->assertSee('inCart: 2', false)
+            ->assertSee('Перейти в корзину');
+    }
+
+    public function test_product_card_shows_buy_button_when_product_not_in_cart(): void
+    {
+        $this->product(['name' => 'Томаты «Бычье сердце»']);
+
+        $this->get(route('storefront'))
+            ->assertOk()
+            ->assertSee('inCart: 0', false)
+            ->assertSee('Купить');
+    }
+
+    public function test_product_page_shows_in_cart_state_with_quantity(): void
+    {
+        $product = $this->product(['name' => 'Томаты «Бычье сердце»']);
+        $this->postJson(route('cart.add'), ['product_id' => $product->id, 'quantity' => 3])->assertOk();
+
+        $this->get(route('products.show', $product))
+            ->assertOk()
+            ->assertSee('inCart: 3', false)
+            ->assertSee('В корзине');
     }
 
     public function test_guest_can_clear_cart(): void
