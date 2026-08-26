@@ -1,0 +1,119 @@
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests & Pint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pgsql, gd, zip, bcmath, mbstring, exif, pcntl, opcache, intl, sqlite3, pdo_sqlite
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: ./vendor/bin/pint --test
+      - run: php artisan optimize:clear
+      - run: php artisan test
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  build-images:
+    name: Build & push images (GHCR)
+    if: github.ref == 'refs/heads/main'
+    needs: [ tests, frontend ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/app/Dockerfile.prod
+          target: app
+          push: true
+          tags: |
+            ghcr.io/jlumoh-code/repa-app:main-${{ github.sha }}
+            ghcr.io/jlumoh-code/repa-app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build nginx image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/app/Dockerfile.prod
+          target: nginx
+          push: true
+          tags: |
+            ghcr.io/jlumoh-code/repa-nginx:main-${{ github.sha }}
+            ghcr.io/jlumoh-code/repa-nginx:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build postgres image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/postgres/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/jlumoh-code/repa-postgres:main-${{ github.sha }}
+            ghcr.io/jlumoh-code/repa-postgres:latest
+
+      - name: Build redis image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/redis/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/jlumoh-code/repa-redis:main-${{ github.sha }}
+            ghcr.io/jlumoh-code/repa-redis:latest
+
+  deploy:
+    name: Deploy to server
+    if: github.ref == 'refs/heads/main'
+    needs: [ build-images ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy on the server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 146.0.79.192
+          username: deploy
+          port: 22
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 20m
+          script: deploy main
