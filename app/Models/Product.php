@@ -5,17 +5,21 @@ namespace App\Models;
 use App\Enums\GrowingPlace;
 use App\Enums\ProductStatus;
 use App\Enums\RipeningPeriod;
+use Database\Factories\ProductFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Spatie\Sluggable\HasSlug;
 use Spatie\Sluggable\SlugOptions;
 
 class Product extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProductFactory> */
+    /** @use HasFactory<ProductFactory> */
     use HasFactory, HasSlug;
 
     /**
@@ -49,6 +53,7 @@ class Product extends Model
         'Сурфиния', 'Калибрахоа', 'Бакопа', 'Диасция', 'Пеларгония',
         'Дихондра', 'Бальзамин', 'Фуксия', 'Тунбергия', 'Бегония',
     ];
+
     protected $fillable = [
         'category_id',
         'manufacturer_id',
@@ -154,7 +159,7 @@ class Product extends Model
                     $rootCategoryId = self::rootCategoryIdFor($product->category_id);
 
                     if ($rootCategoryId !== null) {
-                        $foreign = \Illuminate\Support\Facades\DB::table('filter_value_product as fvp')
+                        $foreign = DB::table('filter_value_product as fvp')
                             ->join('filter_values as fv', 'fv.id', '=', 'fvp.filter_value_id')
                             ->join('filter_groups as fg', 'fg.id', '=', 'fv.filter_group_id')
                             ->where('fvp.product_id', $product->getKey())
@@ -277,7 +282,7 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class)->orderBy('sort_order');
     }
 
-    public function filterValues(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function filterValues(): BelongsToMany
     {
         return $this->belongsToMany(FilterValue::class, 'filter_value_product');
     }
@@ -285,7 +290,7 @@ class Product extends Model
     /**
      * Товары, которые можно показывать на публичной витрине.
      */
-    public function scopeVisible(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    public function scopeVisible(Builder $query): Builder
     {
         return $query->where('status', ProductStatus::Published)->where('is_active', true);
     }

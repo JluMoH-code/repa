@@ -35,6 +35,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # vite-сборка импортирует CSS Filament из vendor — ставим зависимости ДО npm build.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pgsql, gd, zip, bcmath, mbstring, exif, pcntl, opcache, intl
+          coverage: none
+      - run: composer install --no-dev --no-interaction --prefer-dist
       - uses: actions/setup-node@v4
         with:
           node-version: 20

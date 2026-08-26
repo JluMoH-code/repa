@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -60,7 +61,7 @@ class CatalogBusinessRulesTest extends TestCase
         $duplicate['slug'] = $first->slug;
         $duplicate['attributes'] = null;
 
-        \Illuminate\Support\Facades\DB::table('products')->insert($duplicate);
+        DB::table('products')->insert($duplicate);
     }
 
     public function test_blocks_creating_a_product_with_a_negative_price(): void

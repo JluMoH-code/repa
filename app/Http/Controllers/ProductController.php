@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -43,7 +44,7 @@ class ProductController extends Controller
 
         $galleryImages = $product->images->isNotEmpty()
             ? $product->images->map(fn ($image) => [
-                'src' => \Illuminate\Support\Facades\Storage::disk('public')->url($image->path),
+                'src' => Storage::disk('public')->url($image->path),
                 'label' => $product->name,
             ])->all()
             : [['src' => asset('storage/products/placeholders/1.svg'), 'label' => $product->name]];
@@ -74,7 +75,7 @@ class ProductController extends Controller
             ->get()
             ->map(fn (Product $p) => [
                 'src' => optional($p->images->firstWhere('is_main', true) ?? $p->images->first())
-                    ? \Illuminate\Support\Facades\Storage::disk('public')->url(($p->images->firstWhere('is_main', true) ?? $p->images->first())->path)
+                    ? Storage::disk('public')->url(($p->images->firstWhere('is_main', true) ?? $p->images->first())->path)
                     : asset('storage/products/placeholders/1.svg'),
                 'name' => $p->name,
                 'url' => route('products.show', $p),
