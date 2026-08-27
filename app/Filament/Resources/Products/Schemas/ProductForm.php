@@ -91,18 +91,19 @@ class ProductForm
                             ->schema([
                                 TextInput::make('price')
                                     ->label('Цена')
-                                    ->helperText('В копейках, например 15000 = 150 ₽')
-                                    ->hint(fn ($state) => $state !== null && $state !== '' && is_numeric($state)
-                                        ? '≈ '.number_format((float) $state / 100, 2, ',', ' ').' ₽'
-                                        : null)
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->required(),
+                                    ->helperText('В рублях, разделитель — запятая или точка (например 150 или 150,50)')
+                                    ->required()
+                                    ->rule('regex:/^\d{1,9}([.,]\d{1,2})?$/')
+                                    ->validationMessages(['regex' => 'Цена должна быть числом в рублях (например 150 или 150,50).'])
+                                    ->formatStateUsing(fn ($state) => static::formatPriceForForm($state))
+                                    ->dehydrateStateUsing(fn ($state) => static::dehydratePriceFromForm($state)),
                                 TextInput::make('old_price')
                                     ->label('Старая цена (для скидки)')
-                                    ->helperText('В копейках. Если задана, должна быть больше текущей цены')
-                                    ->numeric()
-                                    ->minValue(0),
+                                    ->helperText('В рублях. Если задана, должна быть больше текущей цены')
+                                    ->rule('regex:/^\d{1,9}([.,]\d{1,2})?$/')
+                                    ->validationMessages(['regex' => 'Цена должна быть числом в рублях (например 150 или 150,50).'])
+                                    ->formatStateUsing(fn ($state) => static::formatPriceForForm($state))
+                                    ->dehydrateStateUsing(fn ($state) => static::dehydratePriceFromForm($state)),
                                 TextInput::make('unit')
                                     ->label('Единица измерения')
                                     ->default('упаковка')
@@ -173,10 +174,12 @@ class ProductForm
                                             ->maxLength(255),
                                         TextInput::make('price')
                                             ->label('Цена')
-                                            ->helperText('В копейках, например 15000 = 150 ₽')
-                                            ->numeric()
-                                            ->minValue(0)
-                                            ->required(),
+                                            ->helperText('В рублях, разделитель — запятая или точка (например 150 или 150,50)')
+                                            ->required()
+                                            ->rule('regex:/^\d{1,9}([.,]\d{1,2})?$/')
+                                            ->validationMessages(['regex' => 'Цена должна быть числом в рублях (например 150 или 150,50).'])
+                                            ->formatStateUsing(fn ($state) => static::formatPriceForForm($state))
+                                            ->dehydrateStateUsing(fn ($state) => static::dehydratePriceFromForm($state)),
                                         Toggle::make('in_stock')
                                             ->label('В наличии')
                                             ->default(true),
@@ -265,5 +268,42 @@ class ProductForm
                             ]),
                     ]),
             ]);
+    }
+
+    /**
+     * Копейки (БД) → рубли для показа в поле формы: 15050 → «150,50», 15000 → «150».
+     */
+    private static function formatPriceForForm(mixed $state): ?string
+    {
+        if ($state === null || $state === '') {
+            return null;
+        }
+
+        $kopecks = (int) $state;
+        $rubles = intdiv($kopecks, 100);
+        $cents = $kopecks % 100;
+
+        return $cents === 0
+            ? (string) $rubles
+            : $rubles.','.str_pad((string) $cents, 2, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Рубли из поля формы → копейки для БД. Разделитель — запятая или точка,
+     * пробелы-разделители тысяч игнорируются: «150», «150,50», «1 500» → 15000 / 15050.
+     */
+    private static function dehydratePriceFromForm(mixed $state): ?int
+    {
+        if ($state === null || $state === '') {
+            return null;
+        }
+
+        $value = trim((string) $state);
+        $value = preg_replace('/\s+/u', '', $value);
+        $value = str_replace(',', '.', $value);
+
+        return is_numeric($value)
+            ? (int) round((float) $value * 100)
+            : null;
     }
 }

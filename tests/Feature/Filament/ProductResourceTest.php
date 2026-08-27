@@ -56,7 +56,7 @@ class ProductResourceTest extends TestCase
                 'slug' => 'ogurtsy-aprelskie',
                 'category_id' => $category->id,
                 'sku' => 'SKU-FORM-TEST-1',
-                'price' => 12000,
+                'price' => 120,
                 'status' => ProductStatus::Draft->value,
             ])
             ->call('create')
@@ -66,6 +66,47 @@ class ProductResourceTest extends TestCase
             'sku' => 'SKU-FORM-TEST-1',
             'category_id' => $category->id,
         ]);
+    }
+
+    public function test_price_is_entered_in_rubles_and_stored_in_kopecks(): void
+    {
+        $category = Category::factory()->create();
+
+        Livewire::test(CreateProduct::class)
+            ->fillForm([
+                'name' => 'Огурцы «Апрельские»',
+                'slug' => 'ogurtsy-aprelskie-2',
+                'category_id' => $category->id,
+                'sku' => 'SKU-FORM-TEST-2',
+                'price' => '120,50',
+                'old_price' => '149.99',
+                'status' => ProductStatus::Draft->value,
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('products', [
+            'sku' => 'SKU-FORM-TEST-2',
+            'price' => 12050,
+            'old_price' => 14999,
+        ]);
+    }
+
+    public function test_price_validation_rejects_non_numeric_value(): void
+    {
+        $category = Category::factory()->create();
+
+        Livewire::test(CreateProduct::class)
+            ->fillForm([
+                'name' => 'Товар с неверной ценой',
+                'slug' => 'tovar-s-nevernoy-cenoy',
+                'category_id' => $category->id,
+                'sku' => 'SKU-PRICE-INVALID',
+                'price' => 'abc',
+                'status' => ProductStatus::Draft->value,
+            ])
+            ->call('create')
+            ->assertHasFormErrors(['price']);
     }
 
     public function test_shows_a_validation_error_for_a_duplicate_sku(): void
@@ -80,7 +121,7 @@ class ProductResourceTest extends TestCase
                 'slug' => 'drugoy-tovar',
                 'category_id' => $category->id,
                 'sku' => 'SKU-EXISTING',
-                'price' => 5000,
+                'price' => 50,
                 'status' => ProductStatus::Draft->value,
             ])
             ->call('create')
