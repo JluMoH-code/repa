@@ -171,6 +171,7 @@
                             </button>
                         @endif
                     </div>
+                    </div>
 
                     {{-- Справа: избранное --}}
                     <div class="shrink-0">
