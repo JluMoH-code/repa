@@ -131,4 +131,23 @@ class FavoritesTest extends TestCase
         $this->get(route('cabinet.favorites'))
             ->assertRedirect(route('login'));
     }
+
+    public function test_product_page_renders_favorite_button_with_state(): void
+    {
+        $product = $this->product();
+
+        // Не в избранном — кнопка с data-active="0" и пустой заливкой сердечка.
+        $this->get(route('products.show', $product))
+            ->assertOk()
+            ->assertSee('data-favorite-id="'.$product->id.'"', false)
+            ->assertSee('data-active="0"', false);
+
+        // Добавляем в избранное — страница товара рендерит активное состояние.
+        $this->postJson(route('favorites.toggle'), ['product_id' => $product->id])->assertOk();
+
+        $this->get(route('products.show', $product))
+            ->assertOk()
+            ->assertSee('data-active="1"', false)
+            ->assertSee('favorite-heart-icon', false);
+    }
 }

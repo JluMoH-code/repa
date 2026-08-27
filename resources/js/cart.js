@@ -38,22 +38,42 @@ function updateCartCounter(count) {
     if (badge) badge.textContent = count;
 }
 
+// Единственный видимый тост: новый всегда заменяет текущий (и обновляет его
+// текст, если тот ещё на экране), таймер показа перезапускается — при быстрых
+// повторных кликах тосты не накапливаются и не заполняют экран.
+let toastEl = null;
+let toastTimer = null;
+
 function toast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
-    const el = document.createElement('div');
-    el.className =
-        'pointer-events-auto flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg transition-all duration-300 ' +
-        (type === 'error' ? 'bg-red-600' : 'bg-brand-600');
-    el.textContent = message;
-    container.appendChild(el);
+    if (!toastEl || !toastEl.isConnected) {
+        toastEl = document.createElement('div');
+        toastEl.className =
+            'pointer-events-auto flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg transition-all duration-300';
+        container.appendChild(toastEl);
+    }
 
-    setTimeout(() => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(-8px)';
-        setTimeout(() => el.remove(), 300);
-    }, 2500);
+    toastEl.textContent = message;
+    toastEl.classList.toggle('bg-red-600', type === 'error');
+    toastEl.classList.toggle('bg-brand-600', type !== 'error');
+    toastEl.style.opacity = '1';
+    toastEl.style.transform = '';
+
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        if (!toastEl) return;
+
+        toastEl.style.opacity = '0';
+        toastEl.style.transform = 'translateY(8px)';
+        setTimeout(() => {
+            if (toastEl && toastEl.isConnected) {
+                toastEl.remove();
+            }
+            toastEl = null;
+        }, 300);
+    }, 1500);
 }
 
 /**
@@ -71,7 +91,11 @@ async function addToCart(productId, quantity = 1, onSuccess = null) {
 
     if (ok && payload.success) {
         updateCartCounter(payload.count);
-        toast(payload.message || 'Товар добавлен в корзину');
+        // При повторном добавлении того же товара тост обновляется (см. toast()):
+        // вместо новой «стопки» показываем актуальное количество в корзине.
+        toast(typeof payload.quantity === 'number' && payload.quantity > 1
+            ? `Товар в корзине: ${payload.quantity} шт.`
+            : (payload.message || 'Товар добавлен в корзину'));
         if (onSuccess) onSuccess(payload);
 
         return true;
@@ -243,7 +267,13 @@ function initCartPage() {
     });
 }
 
+// Глобальные функции для Alpine-выражений на карточках товаров и странице
+// товара (x-data вызывает их по имени). addToCart/updateCartQuantity/removeFromCart
+// вывешены на window — Alpine-выражения резолвят идентификаторы через window,
+// и без этого «−» на stepper'е падал с ReferenceError.
 window.addToCart = addToCart;
+window.updateCartQuantity = updateCartQuantity;
+window.removeFromCart = removeFromCart;
 window.dshCart = { addToCart, updateCartQuantity, removeFromCart, syncCartState, updateCartCounter, toast };
 
 export { cartRequest, toast, updateCartCounter, formatPrice };

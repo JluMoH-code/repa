@@ -19,8 +19,10 @@
 
     <x-shop.site-footer :footer-categories="$footerCategories ?? collect()" />
 
-    {{-- Контейнер для toast-уведомлений (добавление в корзину и т.д.) --}}
-    <div id="toast-container" class="pointer-events-none fixed inset-x-0 top-4 z-50 flex flex-col items-center gap-2 px-4"></div>
+    {{-- Контейнер для toast-уведомлений (добавление в корзину и т.д.).
+         Снизу справа; тостов одновременно не бывает больше одного — новый
+         заменяет текущий (см. toast() в resources/js/cart.js). --}}
+    <div id="toast-container" class="pointer-events-none fixed right-4 bottom-4 z-50 flex flex-col items-end gap-2"></div>
 
     @livewireScripts
 </body>
