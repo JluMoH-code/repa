@@ -110,8 +110,22 @@
                         type="button"
                         @click="decrease()"
                         class="flex size-7 shrink-0 items-center justify-center rounded text-accent-700 transition-colors hover:bg-accent-100"
-                        aria-label="Уменьшить количество в корзине"
-                    >−</button>
+                        :aria-label="inCart > 1 ? 'Уменьшить количество в корзине' : 'Удалить товар из корзины'"
+                    >
+                        <span x-show="inCart > 1" aria-hidden="true">−</span>
+                        <svg
+                            x-show="inCart <= 1"
+                            aria-hidden="true"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.6"
+                            class="size-4"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                     <a
                         href="{{ route('cart.index') }}"
                         class="flex min-w-0 items-center justify-center gap-1 px-0.5"

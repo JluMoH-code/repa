@@ -53,6 +53,7 @@
                             ? $product->variants->contains('in_stock', true)
                             : $product->in_stock;
                         $cartQuantity = app(\App\Actions\Cart\CartManager::class)->quantity($product->id);
+                        $isFavorite = app(\App\Actions\Favorites\FavoriteManager::class)->has($product->id);
                     @endphp
 
                     <div
@@ -120,8 +121,22 @@
                                             type="button"
                                             @click="decrease()"
                                             class="flex size-9 items-center justify-center text-accent-700 transition-colors hover:bg-accent-100"
-                                            aria-label="Уменьшить количество в корзине"
-                                        >−</button>
+                                            :aria-label="inCart > 1 ? 'Уменьшить количество в корзине' : 'Удалить товар из корзины'"
+                                        >
+                                            <span x-show="inCart > 1" aria-hidden="true">−</span>
+                                            <svg
+                                                x-show="inCart <= 1"
+                                                aria-hidden="true"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.6"
+                                                class="size-5"
+                                            >
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
                                         <span
                                             class="w-10 border-x border-accent-200 py-2 text-center text-sm font-semibold text-accent-700"
                                             x-text="inCart"
@@ -155,8 +170,21 @@
                         @endif
                     </div>
 
-                    <button type="button" class="flex size-11 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:text-accent-600 transition-colors" aria-label="В избранное">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="size-5">
+                    <button
+                        type="button"
+                        data-favorite-id="{{ $product->id }}"
+                        data-active="{{ $isFavorite ? '1' : '0' }}"
+                        class="flex size-11 items-center justify-center rounded-md border transition-colors {{ $isFavorite ? 'border-red-200 bg-red-50 text-red-500' : 'border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500' }}"
+                        aria-label="В избранное"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="{{ $isFavorite ? 'currentColor' : 'none' }}"
+                            stroke="currentColor"
+                            stroke-width="1.6"
+                            class="favorite-heart-icon size-5"
+                        >
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
                         </svg>
                     </button>

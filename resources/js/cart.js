@@ -243,7 +243,13 @@ function initCartPage() {
     });
 }
 
+// Глобальные функции для Alpine-выражений на карточках товаров и странице
+// товара (x-data вызывает их по имени). addToCart/updateCartQuantity/removeFromCart
+// вывешены на window — Alpine-выражения резолвят идентификаторы через window,
+// и без этого «−» на stepper'е падал с ReferenceError.
 window.addToCart = addToCart;
+window.updateCartQuantity = updateCartQuantity;
+window.removeFromCart = removeFromCart;
 window.dshCart = { addToCart, updateCartQuantity, removeFromCart, syncCartState, updateCartCounter, toast };
 
 export { cartRequest, toast, updateCartCounter, formatPrice };

@@ -67,6 +67,12 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::TOPBAR_END,
                 fn (): HtmlString => new HtmlString(view('filament.partials.open-storefront-link')->render()),
             )
+            // Скрипты панели: страховка от «зависшей» кнопки «Загрузка файла...»
+            // при загрузке изображений (см. resources/js/filament/admin/panel.js).
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn (): HtmlString => new HtmlString(view('filament.partials.admin-panel-scripts')->render()),
+            )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
