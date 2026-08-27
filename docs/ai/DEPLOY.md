@@ -31,6 +31,7 @@
 
 ## Сервер
 
+- Сервер: `77.91.113.161` (SSH 22, пользователь `deploy` для CI/CD).
 - Каталог: `/srv/repa` (принадлежит `deploy`, git pull делает `deploy`).
 - Пользователь `deploy` (в группе `docker`), ключ `~deploy/.ssh/deploy_key` с
   forced command: `command="/usr/local/bin/deploy-wrapper.sh",...` — ключ умеет
@@ -40,13 +41,37 @@
 - Старые dev-volumes (`vendor_data`, `node_modules_data`) после перехода на образы
   не нужны — можно удалить: `docker volume rm repa_vendor_data repa_node_modules_data`.
 
+## Первичная настройка сервера (одноразово)
+
+1. Ubuntu 24.04 + Docker + compose plugin; добавить swap (2–4 ГБ) —
+   `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile`.
+2. Пользователь `deploy` (группа `docker`), `authorized_keys` с forced command
+   `deploy-wrapper.sh`. Можно переиспользовать **тот же ключ** CI/CD — тогда
+   секрет `DEPLOY_SSH_KEY` на GitHub менять не нужно (см. wrapper на текущем сервере).
+3. `git clone https://github.com/JluMoH-code/repa.git /srv/repa` + `chown -R deploy:deploy /srv/repa`.
+4. `/srv/repa/.env`: `APP_URL=http://<IP>`, сгенерировать **`APP_KEY`**
+   (`php artisan key:generate --show` внутри контейнера app), задать `DB_PASSWORD`,
+   `APP_DEBUG=false`. После правок `.env` контейнер пересоздавать
+   (`docker compose up -d --force-recreate app`), `restart` env не перечитывает.
+5. Хост в `.github/workflows/ci-cd.yml` — через PR.
+6. `cd /srv/repa && bash scripts/deploy.sh main` — миграции применятся автоматически.
+7. Сидеры (faker — dev-зависимость, в прод-образе её нет) — разовым контейнером:
+   ```bash
+   docker compose -f docker-compose.prod.yml run --rm -u root -e COMPOSER_ALLOW_SUPERUSER=1 \
+     -e COMPOSER_HOME=/tmp/composer -v repa_seed_vendor:/var/www/html/vendor app sh -c \
+     'curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+      && composer install --no-interaction --prefer-dist && chown -R www-data:www-data /var/www/html/vendor'
+   docker compose -f docker-compose.prod.yml run --rm -e HOME=/tmp \
+     -v repa_seed_vendor:/var/www/html/vendor app php artisan db:seed --force
+   ```
+
 ## Деплой вручную
 
 ```bash
-ssh root@146.0.79.192
+ssh root@77.91.113.161
 cd /srv/repa && bash scripts/deploy.sh main
 # или через deploy-пользователя:
-ssh -i ~/.ssh/repa_deploy_key deploy@146.0.79.192 "deploy main"
+ssh -i ~/.ssh/repa_deploy_key deploy@77.91.113.161 "deploy main"
 ```
 
 ## Откат

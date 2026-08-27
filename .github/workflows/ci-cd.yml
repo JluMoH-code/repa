@@ -128,7 +128,7 @@ jobs:
       - name: Trigger deploy on the server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 146.0.79.192
+          host: 77.91.113.161
           username: deploy
           port: 22
           key: ${{ secrets.DEPLOY_SSH_KEY }}

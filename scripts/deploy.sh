@@ -28,12 +28,15 @@ echo "[deploy] tag=$TAG"
 echo "[deploy] pull images"
 "${COMPOSE[@]}" pull
 
+echo "[deploy] ensure postgres/redis are up (на свежем сервере контейнер должен
+существовать, иначе Docker DNS не резолвит имя 'postgres' при миграциях)"
+"${COMPOSE[@]}" up -d postgres redis
+
 echo "[deploy] run migrations (new image, старые контейнеры ещё работают)"
 "${COMPOSE[@]}" run --rm --no-deps app php artisan migrate --force
 
 echo "[deploy] up containers"
 "${COMPOSE[@]}" up -d --force-recreate app nginx
-"${COMPOSE[@]}" up -d postgres redis
 
 echo "[deploy] optimize"
 "${COMPOSE[@]}" exec -T app php artisan optimize:clear || true
