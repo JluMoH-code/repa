@@ -693,14 +693,14 @@ class OrderTest extends TestCase
     // Справочник городов
     // ------------------------------------------------------------------
 
-    public function test_checkout_renders_city_datalist(): void
+    public function test_checkout_renders_city_autocomplete(): void
     {
         City::factory()->create(['name' => 'Волгоград', 'region' => 'Волгоградская область']);
         $this->guestCart();
 
         $this->get(route('checkout.create'))
             ->assertOk()
-            ->assertSee('cities-datalist')
+            ->assertSee('data-city-autocomplete', false)
             ->assertSee('Волгоград');
     }
 

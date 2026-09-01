@@ -100,26 +100,13 @@
                         <div class="mt-5 grid gap-4 sm:grid-cols-3">
                             <div class="sm:col-span-2">
                                 <label for="delivery_city" class="mb-1 block text-sm font-medium text-slate-700">Город</label>
-                                <input
-                                    id="delivery_city"
-                                    type="text"
+                                <x-shop.city-autocomplete
+                                    :cities="$cities"
                                     name="delivery_city"
-                                    value="{{ old('delivery_city', $order->delivery_city) }}"
+                                    id="delivery_city"
+                                    :value="old('delivery_city', $order->delivery_city)"
                                     required
-                                    maxlength="120"
-                                    list="cities-datalist"
-                                    autocomplete="off"
-                                    placeholder="Начните вводить — выберите из списка"
-                                    class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                                >
-                                <datalist id="cities-datalist">
-                                    @foreach ($cities as $city)
-                                        <option value="{{ $city->name }}">{{ $city->region ? $city->name . ' (' . $city->region . ')' : $city->name }}</option>
-                                    @endforeach
-                                </datalist>
-                                @error('delivery_city')
-                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                @enderror
+                                />
                             </div>
 
                             <div>

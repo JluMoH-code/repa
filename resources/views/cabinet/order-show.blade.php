@@ -56,19 +56,76 @@
                         >
                             Редактировать
                         </a>
-                        <form
-                            method="POST"
-                            action="{{ route('cabinet.orders.cancel', $order) }}"
-                            onsubmit="return confirm('Отменить заказ {{ $order->number }}?');"
-                        >
-                            @csrf
+
+                        <div x-data="{ showCancelModal: false }">
                             <button
-                                type="submit"
+                                type="button"
+                                @click="showCancelModal = true"
                                 class="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
                             >
                                 Отменить заказ
                             </button>
-                        </form>
+
+                            {{-- Модалка подтверждения отмены --}}
+                            <div
+                                x-show="showCancelModal"
+                                x-cloak
+                                class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                                role="dialog"
+                                aria-modal="true"
+                                @keydown.escape.window="showCancelModal = false"
+                            >
+                                {{-- Затемнённый фон с лёгким блюром --}}
+                                <div
+                                    x-show="showCancelModal"
+                                    x-transition.opacity.duration.150ms
+                                    class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                                    @click="showCancelModal = false"
+                                ></div>
+
+                                {{-- Карточка --}}
+                                <div
+                                    x-show="showCancelModal"
+                                    x-transition.opacity.duration.150ms
+                                    class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+                                >
+                                    <div class="flex items-start gap-4">
+                                        <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="size-5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                                            </svg>
+                                        </span>
+                                        <div>
+                                            <h3 class="text-base font-semibold text-slate-900">
+                                                Отменить заказ {{ $order->number }}?
+                                            </h3>
+                                            <p class="mt-1 text-sm text-slate-500">
+                                                Заказ будет переведён в статус «Отменён». Это действие нельзя отменить.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-5 flex justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            @click="showCancelModal = false"
+                                            class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-brand-400 hover:text-brand-700"
+                                        >
+                                            Не отменять
+                                        </button>
+                                        <form method="POST" action="{{ route('cabinet.orders.cancel', $order) }}">
+                                            @csrf
+                                            <button
+                                                type="submit"
+                                                class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+                                            >
+                                                Да, отменить
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 @endif
 
