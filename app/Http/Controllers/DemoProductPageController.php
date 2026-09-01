@@ -140,7 +140,7 @@ class DemoProductPageController extends Controller
             ['label' => 'Описание', 'content' => $descriptionHtml],
             ['label' => 'Отзывы', 'content' => '<p class="text-sm text-slate-500">Отзывов пока нет.</p>'],
             ['label' => 'Схема применения', 'content' => '<p class="text-sm text-slate-500">Информация появится позже.</p>'],
-            ['label' => 'Доставка', 'content' => '<p class="text-sm text-slate-500">Доставка по всей России, подробности — на странице «Доставка и оплата».</p>'],
+            ['label' => 'Доставка', 'content' => '<p class="text-sm text-slate-500">Доставка по всей России, подробности — при подтверждении заказа.</p>'],
         ];
 
         return view('demo-product', [

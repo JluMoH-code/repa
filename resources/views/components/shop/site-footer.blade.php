@@ -29,7 +29,7 @@
                 <ul class="space-y-2 text-sm text-slate-600">
                     <li><a href="#" class="hover:text-brand-700">О магазине</a></li>
                     <li><a href="#" class="hover:text-brand-700">Публикации</a></li>
-                    <li><a href="#" class="hover:text-brand-700">Доставка и оплата</a></li>
+                    <li><a href="#" class="hover:text-brand-700">Ассортимент</a></li>
                     <li><a href="#" class="hover:text-brand-700">Обмен/Возврат</a></li>
                     <li><a href="#" class="hover:text-brand-700">Контакты</a></li>
                 </ul>

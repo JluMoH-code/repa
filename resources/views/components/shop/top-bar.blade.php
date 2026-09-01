@@ -6,7 +6,7 @@
         <nav class="hidden items-center gap-5 text-slate-600 md:flex">
             <a href="#" class="hover:text-brand-700">О нас</a>
             <a href="#" class="hover:text-brand-700">Контакты</a>
-            <a href="#" class="hover:text-brand-700">Доставка и оплата</a>
+            <a href="#" class="hover:text-brand-700">Ассортимент</a>
             <a href="#" class="hover:text-brand-700">Блог</a>
             <a href="#" class="hover:text-brand-700">Публикации</a>
         </nav>
