@@ -3,6 +3,7 @@
 use App\Http\Controllers\CabinetController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DemoProductPageController;
 use App\Http\Controllers\FavoritesController;
 use App\Http\Controllers\HomeController;
@@ -34,6 +35,13 @@ Route::post('/cart/update', [CartController::class, 'update'])->name('cart.updat
 Route::post('/cart/remove', [CartController::class, 'remove'])->name('cart.remove');
 Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear');
 
+// Оформление заказа (доступно и гостям, и авторизованным).
+Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.create');
+Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+// Success-страница для гостя: по связке (number + email) — без email чужой
+// заказ не откроется даже при угадывании номера.
+Route::get('/checkout/success/{order}', [CheckoutController::class, 'success'])->name('checkout.success');
+
 Route::middleware('auth')->group(function () {
     // Личный кабинет
     Route::get('/cabinet', [CabinetController::class, 'index'])->name('cabinet.index');
@@ -41,6 +49,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/cabinet/profile', [CabinetController::class, 'updateProfile'])->name('cabinet.profile.update');
     Route::post('/cabinet/password', [CabinetController::class, 'updatePassword'])->name('cabinet.password.update');
     Route::get('/cabinet/orders', [CabinetController::class, 'orders'])->name('cabinet.orders');
+    Route::get('/cabinet/orders/{order}', [CabinetController::class, 'orderShow'])->name('cabinet.orders.show');
     Route::get('/cabinet/favorites', [FavoritesController::class, 'index'])->name('cabinet.favorites');
 });
 

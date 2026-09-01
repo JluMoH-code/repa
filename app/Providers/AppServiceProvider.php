@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\Cart\CartManager;
 use App\Actions\Favorites\FavoriteManager;
+use App\Actions\Orders\OrderManager;
 use App\Actions\Settings\SettingsManager;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
@@ -23,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
         // чтобы карточки/шапка не делали N+1 запросов.
         $this->app->singleton(CartManager::class);
         $this->app->singleton(FavoriteManager::class);
+        $this->app->singleton(OrderManager::class);
         $this->app->singleton(SettingsManager::class);
     }
 

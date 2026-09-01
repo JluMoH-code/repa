@@ -7,6 +7,7 @@ use App\Actions\Favorites\FavoriteManager;
 use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Models\Category;
+use App\Models\Order;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -27,6 +28,7 @@ class CabinetController extends Controller
         return view('cabinet.index', [
             'favoritesCount' => $this->favorites->count(),
             'cartCount' => $this->cart->count(),
+            'ordersCount' => $this->ordersCount(),
             'footerCategories' => $this->footerCategories(),
         ]);
     }
@@ -62,11 +64,39 @@ class CabinetController extends Controller
     }
 
     /**
-     * Мои заказы — заглушка до этапа оформления заказов.
+     * Список заказов покупателя (свои + гостевые, оформленные на тот же email).
      */
     public function orders(): View
     {
+        $user = auth()->user();
+        $orders = Order::query()
+            ->forCustomer($user->id, $user->email)
+            ->withCount('items')
+            ->latest('placed_at')
+            ->paginate(10);
+
         return view('cabinet.orders', [
+            'orders' => $orders,
+            'footerCategories' => $this->footerCategories(),
+        ]);
+    }
+
+    /**
+     * Детальная страница заказа в кабинете.
+     * Чужие заказы (другого user_id или email) — 404.
+     */
+    public function orderShow(Order $order): View
+    {
+        $user = auth()->user();
+        $belongs = ($order->user_id !== null && $order->user_id === $user->id)
+            || strcasecmp((string) $order->customer_email, (string) $user->email) === 0;
+
+        abort_unless($belongs, 404);
+
+        $order->load('items');
+
+        return view('cabinet.order-show', [
+            'order' => $order,
             'footerCategories' => $this->footerCategories(),
         ]);
     }
@@ -78,5 +108,17 @@ class CabinetController extends Controller
             ->orderBy('sort_order')
             ->limit(6)
             ->get();
+    }
+
+    /**
+     * Сколько заказов у пользователя (для карточки «Заказы» в обзоре кабинета).
+     */
+    private function ordersCount(): int
+    {
+        $user = auth()->user();
+
+        return Order::query()
+            ->forCustomer($user->id, $user->email)
+            ->count();
     }
 }
