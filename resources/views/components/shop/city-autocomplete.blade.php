@@ -30,7 +30,7 @@
         @if ($id) id="{{ $id }}" @endif
         x-model="query"
         @input="filter()"
-        @focus="open = true"
+        @focus="filter()"
         @click.outside="open = false"
         @keydown.down.prevent="move(1)"
         @keydown.up.prevent="move(-1)"
@@ -41,9 +41,10 @@
         class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
     >
 
-    {{-- Выпадающий список совпадений --}}
+    {{-- Выпадающий список совпадений: показываем только когда есть что показать
+         (иначе при фокусе на пустом поле вылезала бы пустая белая плашка). --}}
     <ul
-        x-show="open"
+        x-show="open && filtered.length > 0"
         x-transition.opacity.duration.150ms
         x-cloak
         class="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
