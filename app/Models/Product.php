@@ -184,6 +184,17 @@ class Product extends Model
                 $product->filterValues()->detach();
             }
         });
+
+        // Нельзя удалить товар, если он присутствует хотя бы в одном заказе —
+        // иначе сломается история заказов (order_items ссылается на product_id).
+        static::deleting(function (self $product) {
+            if ($product->getKey() !== null
+                && DB::table('order_items')->where('product_id', $product->getKey())->exists()) {
+                throw new InvalidArgumentException(
+                    'Нельзя удалить товар, который присутствует в заказах. Смените статус на «В архиве» или «Снят с продажи».'
+                );
+            }
+        });
     }
 
     /**

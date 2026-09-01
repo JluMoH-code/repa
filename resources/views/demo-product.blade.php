@@ -124,7 +124,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
                             </svg>
                         </span>
-                        <span class="text-sm font-medium text-slate-700">Оплата заказа при получении</span>
+                        <span class="text-sm font-medium text-slate-700">Семена от проверенных производителей</span>
                     </div>
                     <div class="flex items-center gap-3 rounded-lg bg-slate-100 p-3">
                         <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-500 text-white">
@@ -132,7 +132,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6" />
                             </svg>
                         </span>
-                        <span class="text-sm font-medium text-slate-700">Нет минимальной суммы заказа</span>
+                        <span class="text-sm font-medium text-slate-700">Большой выбор сортов</span>
                     </div>
                 </div>
 

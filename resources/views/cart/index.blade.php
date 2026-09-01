@@ -138,12 +138,12 @@
                         </div>
                     </div>
 
-                    <button
-                        type="button"
-                        class="mt-5 w-full rounded-md bg-brand-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+                    <a
+                        href="{{ route('checkout.create') }}"
+                        class="mt-5 block w-full rounded-md bg-brand-600 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-700"
                     >
                         Оформить заказ
-                    </button>
+                    </a>
 
                     <a href="{{ route('storefront') }}" class="mt-3 block text-center text-sm font-medium text-slate-600 hover:text-brand-700">
                         Продолжить покупки

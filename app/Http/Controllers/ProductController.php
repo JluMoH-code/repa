@@ -99,7 +99,7 @@ class ProductController extends Controller
             ['label' => 'Описание', 'content' => $descriptionHtml],
             ['label' => 'Характеристики', 'content' => $attributesHtml],
             ['label' => 'Отзывы', 'content' => '<p class="text-sm text-slate-400">Отзывов пока нет.</p>'],
-            ['label' => 'Доставка', 'content' => '<p class="text-sm text-slate-500">Доставка по всей России, подробности — на странице «Доставка и оплата».</p>'],
+            ['label' => 'Доставка', 'content' => '<p class="text-sm text-slate-500">Доставка по всей России, подробности — при подтверждении заказа.</p>'],
         ];
 
         return view('product-show', [
