@@ -4,12 +4,16 @@
 function formatPhone(value) {
     let digits = value.replace(/\D/g, '');
 
-    if (digits.startsWith('8')) {
-        digits = '7' + digits.slice(1);
+    if (digits === '') {
+        return '';
     }
 
-    if (!digits.startsWith('7')) {
-        return value;
+    if (digits.startsWith('8')) {
+        digits = '7' + digits.slice(1);
+    } else if (!digits.startsWith('7')) {
+        // Пользователь начал вводить с «9» (или любой другой цифры) — считаем
+        // это началом российского номера и автоматически подставляем «7».
+        digits = '7' + digits;
     }
 
     digits = digits.slice(0, 11);

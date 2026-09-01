@@ -4,6 +4,7 @@ namespace App\Actions\Orders;
 
 use App\Actions\Cart\CartManager;
 use App\Enums\OrderStatus;
+use App\Enums\UserRole;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Product;
@@ -11,6 +12,7 @@ use App\Models\User;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
  * Создание заказа из текущей корзины.
@@ -22,6 +24,18 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderManager
 {
+    /**
+     * Статусы, при которых покупатель может отменить/отредактировать заказ
+     * (до этапа отправки).
+     *
+     * @var array<int, OrderStatus>
+     */
+    private const CUSTOMER_EDITABLE_STATUSES = [
+        OrderStatus::New,
+        OrderStatus::Processing,
+        OrderStatus::Paid,
+    ];
+
     public function __construct(
         private readonly AuthFactory $auth,
         private readonly CartManager $cart,
@@ -182,6 +196,90 @@ class OrderManager
             })
             ->filter()
             ->values();
+    }
+
+    /**
+     * Создать аккаунт покупателя из данных гостевого заказа (используется на
+     * success-странице после оформления): пользователь задаёт пароль сам.
+     * Все гостевые заказы на этот email привязываются к аккаунту.
+     *
+     * @throws RuntimeException если email уже занят (unique constraint)
+     */
+    public function createGuestAccount(Order $order, string $password): User
+    {
+        return DB::transaction(function () use ($order, $password) {
+            $user = User::create([
+                'name' => $order->customer_name,
+                'email' => $order->customer_email,
+                'phone' => $order->customer_phone,
+                'password' => $password, // хешируется кастом 'hashed'
+                'role' => UserRole::Customer,
+            ]);
+
+            Order::query()
+                ->where('customer_email', $user->email)
+                ->whereNull('user_id')
+                ->update(['user_id' => $user->id]);
+
+            return $user;
+        });
+    }
+
+    /**
+     * Отмена заказа покупателем — доступна только до отправки
+     * (статусы New/Processing/Paid).
+     *
+     * @throws RuntimeException если заказ уже отправлен или завершён
+     */
+    public function cancelByCustomer(Order $order): void
+    {
+        $this->assertEditableByCustomer($order);
+        $this->changeStatus($order, OrderStatus::Cancelled);
+    }
+
+    /**
+     * Обновить контактные данные и адрес доставки заказа (покупатель,
+     * до отправки). Состав заказа не изменяется — цены и снимки фиксированы.
+     *
+     * @param  array<string, string|null>  $data
+     *
+     * @throws RuntimeException если заказ уже отправлен или завершён
+     */
+    public function updateCustomerData(Order $order, array $data): void
+    {
+        $this->assertEditableByCustomer($order);
+
+        $order->fill([
+            'customer_name' => $data['customer_name'],
+            'customer_email' => $data['customer_email'],
+            'customer_phone' => $this->normalizePhone((string) $data['customer_phone']),
+            'delivery_city' => $data['delivery_city'],
+            'delivery_postcode' => $data['delivery_postcode'] ?? null,
+            'delivery_address' => $data['delivery_address'],
+            'comment' => isset($data['comment']) && trim((string) $data['comment']) !== ''
+                ? trim((string) $data['comment'])
+                : null,
+        ])->save();
+    }
+
+    /**
+     * Можно ли покупателю отменить/отредактировать заказ (до отправки).
+     */
+    public function isEditableByCustomer(Order $order): bool
+    {
+        return in_array($order->status, self::CUSTOMER_EDITABLE_STATUSES, true);
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    private function assertEditableByCustomer(Order $order): void
+    {
+        if (! $this->isEditableByCustomer($order)) {
+            throw new RuntimeException(
+                'Заказ уже отправлен или завершён — отмена и редактирование недоступны.'
+            );
+        }
     }
 
     /**

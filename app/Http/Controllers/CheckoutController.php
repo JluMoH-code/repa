@@ -7,11 +7,14 @@ use App\Actions\Orders\EmptyCartException;
 use App\Actions\Orders\OrderManager;
 use App\Actions\Orders\ProductUnavailableException;
 use App\Models\Category;
+use App\Models\City;
 use App\Models\Order;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Throwable;
 
 class CheckoutController extends Controller
 {
@@ -39,6 +42,7 @@ class CheckoutController extends Controller
             'lines' => $lines,
             'total' => $this->cart->total(),
             'footerCategories' => $this->footerCategories(),
+            'cities' => $this->cities(),
             'defaults' => [
                 'customer_name' => old('customer_name', $user?->name),
                 'customer_email' => old('customer_email', $user?->email),
@@ -119,7 +123,71 @@ class CheckoutController extends Controller
         return view('checkout.success', [
             'order' => $orderModel,
             'footerCategories' => $this->footerCategories(),
+            'isGuest' => auth()->guest(),
+            // Email занят — значит у гостя уже есть аккаунт: вместо создания
+            // показываем форму входа (после входа заказ виден в кабинете).
+            'emailTaken' => User::query()->where('email', $orderModel->customer_email)->exists(),
         ]);
+    }
+
+    /**
+     * Создать аккаунт из гостевого заказа (страница успеха): гость задаёт
+     * пароль → аккаунт создаётся из данных заказа → автовход → кабинет.
+     */
+    public function createAccount(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'order_number' => ['required', 'string', 'max:20'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ], $this->accountMessages());
+
+        $order = Order::query()
+            ->where('number', $data['order_number'])
+            ->whereNull('user_id')
+            ->first();
+
+        abort_unless($order, 404);
+
+        if (User::query()->where('email', $order->customer_email)->exists()) {
+            return redirect()
+                ->route('login')
+                ->withErrors(['email' => 'Аккаунт с таким email уже существует — войдите под своим паролем.']);
+        }
+
+        try {
+            $user = $this->orders->createGuestAccount($order, $data['password']);
+        } catch (Throwable) {
+            return back()
+                ->withErrors(['email' => 'Не удалось создать аккаунт: email уже зарегистрирован. Войдите под своим паролем.']);
+        }
+
+        auth()->login($user);
+
+        return redirect()
+            ->route('cabinet.orders.show', $order)
+            ->with('status', 'Аккаунт создан. Заказ привязан к вашему профилю.');
+    }
+
+    /**
+     * @return Collection<int, City>
+     */
+    private function cities(): Collection
+    {
+        return City::query()->orderBy('name')->get();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function accountMessages(): array
+    {
+        return [
+            'order_number.required' => 'Не указан номер заказа.',
+            'order_number.max' => 'Некорректный номер заказа.',
+            'password.required' => 'Придумайте пароль.',
+            'password.min' => 'Пароль должен быть не короче 8 символов.',
+            'password.confirmed' => 'Пароли не совпадают.',
+        ];
     }
 
     /**

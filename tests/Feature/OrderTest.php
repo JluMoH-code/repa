@@ -8,6 +8,7 @@ use App\Filament\Pages\Orders;
 use App\Filament\Pages\OrderShow;
 use App\Models\Cart;
 use App\Models\Category;
+use App\Models\City;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
@@ -400,5 +401,314 @@ class OrderTest extends TestCase
         ]);
 
         $this->assertMatchesRegularExpression('/^Р-\d{4}-\d{6}$/', $order->number);
+    }
+
+    // ------------------------------------------------------------------
+    // Аккаунт гостя из заказа (success-страница)
+    // ------------------------------------------------------------------
+
+    public function test_success_page_shows_password_form_for_guest(): void
+    {
+        $this->guestCart();
+        $this->post(route('checkout.store'), $this->checkoutPayload());
+        $order = Order::query()->firstOrFail();
+
+        $this->get(route('checkout.success', ['order' => $order->number, 'email' => 'guest@example.com']))
+            ->assertOk()
+            ->assertSee('Создайте аккаунт и следите за заказом')
+            ->assertSee('Создать аккаунт и войти');
+    }
+
+    public function test_success_page_shows_login_form_when_email_taken(): void
+    {
+        User::factory()->create(['email' => 'guest@example.com']);
+        $this->guestCart();
+        $this->post(route('checkout.store'), $this->checkoutPayload());
+        $order = Order::query()->firstOrFail();
+
+        $this->get(route('checkout.success', ['order' => $order->number, 'email' => 'guest@example.com']))
+            ->assertOk()
+            ->assertSee('Аккаунт с email', false)
+            ->assertSee('Войти');
+    }
+
+    public function test_success_page_hides_forms_for_authenticated_user(): void
+    {
+        $user = User::factory()->create(['email' => 'guest@example.com']);
+        $this->guestCart();
+        $this->post(route('checkout.store'), $this->checkoutPayload());
+        $order = Order::query()->firstOrFail();
+
+        $this->actingAs($user)
+            ->get(route('checkout.success', ['order' => $order->number, 'email' => 'guest@example.com']))
+            ->assertOk()
+            ->assertDontSee('Создать аккаунт и войти')
+            ->assertSee('привязан к вашему аккаунту');
+    }
+
+    public function test_guest_can_create_account_and_link_order(): void
+    {
+        $this->guestCart();
+        $this->post(route('checkout.store'), $this->checkoutPayload());
+        $order = Order::query()->firstOrFail();
+
+        $this->post(route('checkout.account'), [
+            'order_number' => $order->number,
+            'password' => 'secret-password',
+            'password_confirmation' => 'secret-password',
+        ])->assertRedirect(route('cabinet.orders.show', $order));
+
+        $user = User::query()->where('email', 'guest@example.com')->firstOrFail();
+
+        $this->assertSame('Иван Петров', $user->name);
+        $this->assertSame('+79991234567', $user->phone);
+        $this->assertAuthenticatedAs($user);
+        $this->assertSame($user->id, $order->refresh()->user_id);
+    }
+
+    public function test_creating_account_links_all_guest_orders_with_same_email(): void
+    {
+        $this->guestCart();
+        $this->post(route('checkout.store'), $this->checkoutPayload());
+        $first = Order::query()->firstOrFail();
+
+        $second = Order::factory()->guest()->create(['customer_email' => 'guest@example.com']);
+
+        $this->post(route('checkout.account'), [
+            'order_number' => $first->number,
+            'password' => 'secret-password',
+            'password_confirmation' => 'secret-password',
+        ]);
+
+        $user = User::query()->where('email', 'guest@example.com')->firstOrFail();
+
+        $this->assertSame($user->id, $first->refresh()->user_id);
+        $this->assertSame($user->id, $second->refresh()->user_id);
+    }
+
+    public function test_guest_cannot_create_account_when_email_taken(): void
+    {
+        User::factory()->create(['email' => 'guest@example.com']);
+        $this->guestCart();
+        $this->post(route('checkout.store'), $this->checkoutPayload());
+        $order = Order::query()->firstOrFail();
+
+        $this->post(route('checkout.account'), [
+            'order_number' => $order->number,
+            'password' => 'secret-password',
+            'password_confirmation' => 'secret-password',
+        ])->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertSame(1, User::query()->count());
+        $this->assertNull($order->refresh()->user_id);
+    }
+
+    public function test_guest_account_password_validation(): void
+    {
+        $this->guestCart();
+        $this->post(route('checkout.store'), $this->checkoutPayload());
+        $order = Order::query()->firstOrFail();
+
+        $this->from(route('checkout.success', ['order' => $order->number, 'email' => 'guest@example.com']))
+            ->post(route('checkout.account'), [
+                'order_number' => $order->number,
+                'password' => 'short',
+                'password_confirmation' => 'short',
+            ])
+            ->assertSessionHasErrors(['password']);
+
+        $this->assertSame(0, User::query()->count());
+    }
+
+    public function test_guest_cannot_create_account_for_linked_order(): void
+    {
+        $this->guestCart();
+        $this->post(route('checkout.store'), $this->checkoutPayload());
+        $order = Order::query()->firstOrFail();
+
+        $payload = [
+            'order_number' => $order->number,
+            'password' => 'secret-password',
+            'password_confirmation' => 'secret-password',
+        ];
+
+        $this->post(route('checkout.account'), $payload)->assertRedirect(route('cabinet.orders.show', $order));
+
+        // Повторный вызов: заказ уже привязан к аккаунту → 404.
+        $this->post(route('checkout.account'), $payload)->assertNotFound();
+
+        $this->assertSame(1, User::query()->count());
+    }
+
+    // ------------------------------------------------------------------
+    // Отмена заказа покупателем
+    // ------------------------------------------------------------------
+
+    public function test_customer_can_cancel_own_order_before_shipping(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->forUser($user)->create(['status' => OrderStatus::New]);
+
+        $this->actingAs($user)->post(route('cabinet.orders.cancel', $order))
+            ->assertRedirect(route('cabinet.orders.show', $order));
+
+        $this->assertSame(OrderStatus::Cancelled, $order->refresh()->status);
+    }
+
+    public function test_customer_cannot_cancel_shipped_order(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->forUser($user)->create(['status' => OrderStatus::Shipped]);
+
+        $this->actingAs($user)->from(route('cabinet.orders.show', $order))
+            ->post(route('cabinet.orders.cancel', $order))
+            ->assertRedirect(route('cabinet.orders.show', $order))
+            ->assertSessionHasErrors('order');
+
+        $this->assertSame(OrderStatus::Shipped, $order->refresh()->status);
+    }
+
+    public function test_customer_cannot_cancel_delivered_order(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->forUser($user)->create(['status' => OrderStatus::Delivered]);
+
+        $this->actingAs($user)->post(route('cabinet.orders.cancel', $order))
+            ->assertRedirect(route('cabinet.orders.show', $order))
+            ->assertSessionHasErrors('order');
+
+        $this->assertSame(OrderStatus::Delivered, $order->refresh()->status);
+    }
+
+    public function test_customer_cannot_cancel_foreign_order(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $order = Order::factory()->forUser($other)->create();
+
+        $this->actingAs($user)->post(route('cabinet.orders.cancel', $order))
+            ->assertNotFound();
+    }
+
+    // ------------------------------------------------------------------
+    // Редактирование заказа покупателем
+    // ------------------------------------------------------------------
+
+    public function test_customer_can_edit_own_order_before_shipping(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->product();
+        $order = Order::factory()->forUser($user)->create(['status' => OrderStatus::New]);
+        $order->items()->create([
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'price' => 15000,
+            'quantity' => 1,
+            'line_total' => 15000,
+        ]);
+
+        $this->actingAs($user)->put(route('cabinet.orders.update', $order), [
+            'customer_name' => 'Новое имя',
+            'customer_email' => 'new@example.com',
+            'customer_phone' => '+7 (999) 000-11-22',
+            'delivery_city' => 'Волгоград',
+            'delivery_postcode' => '400001',
+            'delivery_address' => 'пр. Ленина, 28',
+            'comment' => 'Обновлённый комментарий',
+        ])->assertRedirect(route('cabinet.orders.show', $order));
+
+        $order->refresh();
+
+        $this->assertSame('Новое имя', $order->customer_name);
+        $this->assertSame('new@example.com', $order->customer_email);
+        $this->assertSame('+79990001122', $order->customer_phone);
+        $this->assertSame('Волгоград', $order->delivery_city);
+        $this->assertSame('400001', $order->delivery_postcode);
+        $this->assertSame('Обновлённый комментарий', $order->comment);
+        $this->assertSame(1, $order->items()->count());
+    }
+
+    public function test_customer_cannot_edit_shipped_order(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->forUser($user)->create([
+            'status' => OrderStatus::Shipped,
+            'delivery_address' => 'Старый адрес',
+        ]);
+
+        // Контроллер при ошибке делает back() — тестируем с from(), чтобы
+        // back() вернулся на форму редактирования.
+        $this->actingAs($user)->from(route('cabinet.orders.edit', $order))
+            ->put(route('cabinet.orders.update', $order), [
+                'customer_name' => $order->customer_name,
+                'customer_email' => $order->customer_email,
+                'customer_phone' => $order->customer_phone,
+                'delivery_city' => $order->delivery_city,
+                'delivery_address' => 'Новый адрес',
+            ])
+            ->assertRedirect(route('cabinet.orders.edit', $order))
+            ->assertSessionHasErrors('order');
+
+        $this->assertSame('Старый адрес', $order->refresh()->delivery_address);
+    }
+
+    public function test_order_edit_page_returns_404_for_foreign_order(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $order = Order::factory()->forUser($other)->create();
+
+        $this->actingAs($user)->get(route('cabinet.orders.edit', $order))
+            ->assertNotFound();
+    }
+
+    public function test_order_edit_validation_rejects_invalid_data(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->forUser($user)->create(['status' => OrderStatus::New]);
+
+        $this->actingAs($user)->from(route('cabinet.orders.edit', $order))
+            ->put(route('cabinet.orders.update', $order), [
+                'customer_name' => '',
+                'customer_email' => 'not-an-email',
+                'customer_phone' => '',
+                'delivery_city' => '',
+                'delivery_address' => '',
+            ])
+            ->assertRedirect(route('cabinet.orders.edit', $order))
+            ->assertSessionHasErrors(['customer_name', 'customer_email', 'customer_phone', 'delivery_city', 'delivery_address']);
+    }
+
+    public function test_guest_cannot_access_order_edit(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->forUser($user)->create();
+
+        $this->get(route('cabinet.orders.edit', $order))
+            ->assertRedirect(route('login'));
+    }
+
+    // ------------------------------------------------------------------
+    // Справочник городов
+    // ------------------------------------------------------------------
+
+    public function test_checkout_renders_city_datalist(): void
+    {
+        City::factory()->create(['name' => 'Волгоград', 'region' => 'Волгоградская область']);
+        $this->guestCart();
+
+        $this->get(route('checkout.create'))
+            ->assertOk()
+            ->assertSee('cities-datalist')
+            ->assertSee('Волгоград');
+    }
+
+    public function test_city_model_can_be_created_and_queried(): void
+    {
+        City::factory()->create(['name' => 'Москва', 'region' => 'Москва']);
+
+        $this->assertDatabaseHas('cities', ['name' => 'Москва', 'region' => 'Москва']);
+        $this->assertSame(1, City::query()->count());
     }
 }

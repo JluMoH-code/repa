@@ -64,5 +64,77 @@
                 </a>
             </div>
         </div>
+
+        {{-- Гость: предложение привязать заказ к аккаунту --}}
+        @if ($isGuest)
+            <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                @if ($emailTaken)
+                    {{-- Email уже зарегистрирован — предлагаем войти: заказ виден в кабинете по email --}}
+                    <h2 class="text-lg font-semibold text-slate-900">Отслеживайте заказ в личном кабинете</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Аккаунт с email <span class="font-semibold text-slate-700">{{ $order->customer_email }}</span>
+                        уже существует — войдите, и заказ появится в кабинете.
+                    </p>
+                    <form method="POST" action="{{ route('login') }}" class="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                        @csrf
+                        <div>
+                            <input type="email" name="email" value="{{ $order->customer_email }}" readonly
+                                class="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <input type="password" name="password" placeholder="Пароль" required
+                                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
+                        </div>
+                        <button type="submit"
+                            class="rounded-md bg-brand-600 px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700">
+                            Войти
+                        </button>
+                    </form>
+                    @error('email')
+                        <p class="mt-2 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                @else
+                    {{-- Аккаунта нет — создаём из данных заказа, пароль задаёт гость --}}
+                    <h2 class="text-lg font-semibold text-slate-900">Создайте аккаунт и следите за заказом</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Пароль придумайте сами — после этого вы войдёте в кабинет, где будет виден заказ
+                        <span class="font-semibold text-slate-700">{{ $order->number }}</span>.
+                    </p>
+                    <form method="POST" action="{{ route('checkout.account') }}" class="mt-4 grid gap-3 sm:grid-cols-2">
+                        @csrf
+                        <input type="hidden" name="order_number" value="{{ $order->number }}">
+                        <div class="sm:col-span-2">
+                            <label for="account_email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                            <input id="account_email" type="email" value="{{ $order->customer_email }}" readonly
+                                class="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label for="account_password" class="mb-1 block text-sm font-medium text-slate-700">Пароль</label>
+                            <input id="account_password" type="password" name="password" placeholder="Минимум 8 символов" required minlength="8"
+                                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
+                            @error('password')
+                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label for="account_password_confirmation" class="mb-1 block text-sm font-medium text-slate-700">Повторите пароль</label>
+                            <input id="account_password_confirmation" type="password" name="password_confirmation" required minlength="8"
+                                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <button type="submit"
+                                class="w-full rounded-md bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 sm:w-auto">
+                                Создать аккаунт и войти
+                            </button>
+                        </div>
+                    </form>
+                @endif
+            </div>
+        @else
+            <p class="mt-4 text-center text-sm text-slate-500">
+                Заказ привязан к вашему аккаунту — он доступен в
+                <a href="{{ route('cabinet.orders') }}" class="font-medium text-brand-700 hover:underline">личном кабинете</a>.
+            </p>
+        @endif
     </div>
 </x-layouts.shop>

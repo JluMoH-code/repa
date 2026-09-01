@@ -36,6 +36,42 @@
                     </span>
                 </div>
 
+                @if (session('status'))
+                    <div class="rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                        {{ session('status') }}
+                    </div>
+                @endif
+                @error('order')
+                    <div class="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                        {{ $message }}
+                    </div>
+                @enderror
+
+                {{-- Отмена/редактирование доступны до отправки заказа (New/Processing/Paid) --}}
+                @if (in_array($order->status, [\App\Enums\OrderStatus::New, \App\Enums\OrderStatus::Processing, \App\Enums\OrderStatus::Paid], true))
+                    <div class="flex flex-wrap items-center gap-3">
+                        <a
+                            href="{{ route('cabinet.orders.edit', $order) }}"
+                            class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-brand-400 hover:text-brand-700"
+                        >
+                            Редактировать
+                        </a>
+                        <form
+                            method="POST"
+                            action="{{ route('cabinet.orders.cancel', $order) }}"
+                            onsubmit="return confirm('Отменить заказ {{ $order->number }}?');"
+                        >
+                            @csrf
+                            <button
+                                type="submit"
+                                class="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+                            >
+                                Отменить заказ
+                            </button>
+                        </form>
+                    </div>
+                @endif
+
                 <div class="grid gap-4 sm:grid-cols-2">
                     <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                         <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Получатель</h3>

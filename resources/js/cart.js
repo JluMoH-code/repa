@@ -173,8 +173,13 @@ async function syncCartState() {
 // состоянием корзины. Синхронизируем всегда (страницу корзины перезагружаем
 // целиком — её DOM точечно обновлять сложно). Небольшая задержка нужна, чтобы
 // Alpine успел навесить слушатели cart-synced.
-window.addEventListener('pageshow', () => {
-    if (document.getElementById('cart-page')) {
+//
+// ВАЖНО: pageshow срабатывает при КАЖДОЙ загрузке страницы, а не только при
+// восстановлении из bfcache. Reload нужен только для bfcache-восстановления
+// (event.persisted === true) — иначе обычный заход на /cart уходит в бесконечный
+// цикл перезагрузки и оформить заказ невозможно.
+window.addEventListener('pageshow', (event) => {
+    if (document.getElementById('cart-page') && event.persisted) {
         window.location.reload();
 
         return;

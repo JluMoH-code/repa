@@ -38,6 +38,8 @@ Route::post('/cart/clear', [CartController::class, 'clear'])->name('cart.clear')
 // Оформление заказа (доступно и гостям, и авторизованным).
 Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.create');
 Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+// Создание аккаунта из гостевого заказа на success-странице (гость задаёт пароль).
+Route::post('/checkout/account', [CheckoutController::class, 'createAccount'])->name('checkout.account');
 // Success-страница для гостя: по связке (number + email) — без email чужой
 // заказ не откроется даже при угадывании номера.
 Route::get('/checkout/success/{order}', [CheckoutController::class, 'success'])->name('checkout.success');
@@ -50,6 +52,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/cabinet/password', [CabinetController::class, 'updatePassword'])->name('cabinet.password.update');
     Route::get('/cabinet/orders', [CabinetController::class, 'orders'])->name('cabinet.orders');
     Route::get('/cabinet/orders/{order}', [CabinetController::class, 'orderShow'])->name('cabinet.orders.show');
+    // Редактирование/отмена заказа покупателем (до отправки).
+    Route::get('/cabinet/orders/{order}/edit', [CabinetController::class, 'orderEdit'])->name('cabinet.orders.edit');
+    Route::put('/cabinet/orders/{order}', [CabinetController::class, 'orderUpdate'])->name('cabinet.orders.update');
+    Route::post('/cabinet/orders/{order}/cancel', [CabinetController::class, 'orderCancel'])->name('cabinet.orders.cancel');
     Route::get('/cabinet/favorites', [FavoritesController::class, 'index'])->name('cabinet.favorites');
 });
 
