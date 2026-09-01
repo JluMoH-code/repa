@@ -140,13 +140,30 @@
                     </section>
 
                     <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Адрес доставки</h3>
+                        <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Получение заказа</h3>
+                        @php
+                            $isPickup = ($order->delivery_method ?? \App\Enums\OrderDeliveryMethod::Pickup) === \App\Enums\OrderDeliveryMethod::Pickup;
+                            $shopAddress = app(\App\Actions\Settings\SettingsManager::class)->get('address');
+                        @endphp
                         <div class="mt-2 text-sm text-slate-700">
-                            <div>{{ $order->delivery_city }}</div>
-                            @if ($order->delivery_postcode)
-                                <div class="text-slate-500">индекс {{ $order->delivery_postcode }}</div>
+                            @if ($isPickup)
+                                <span class="inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                                    Самовывоз
+                                </span>
+                                <div class="mt-2 text-slate-500">Магазин Repa: {{ $shopAddress }}</div>
+                            @else
+                                <span class="inline-block rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
+                                    Доставка по адресу
+                                </span>
+                                <div class="mt-2">{{ $order->delivery_city }}</div>
+                                @if ($order->delivery_postcode)
+                                    <div class="text-slate-500">индекс {{ $order->delivery_postcode }}</div>
+                                @endif
+                                <div class="mt-0.5 text-slate-500">{{ $order->delivery_address }}</div>
+                                @if ($order->delivery_service)
+                                    <div class="mt-1 text-xs text-slate-400">Служба: {{ $order->delivery_service }}</div>
+                                @endif
                             @endif
-                            <div class="mt-0.5 text-slate-500">{{ $order->delivery_address }}</div>
                         </div>
                     </section>
                 </div>

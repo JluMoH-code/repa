@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\OrderDeliveryMethod;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
@@ -24,9 +25,10 @@ class OrderFactory extends Factory
             'customer_name' => $this->faker->name(),
             'customer_email' => $this->faker->safeEmail(),
             'customer_phone' => '+7'.str_pad((string) $this->faker->unique()->numberBetween(1000000000, 9999999999), 10, '0', STR_PAD_LEFT),
-            'delivery_city' => $this->faker->city(),
-            'delivery_postcode' => $this->faker->optional(0.7)->postcode(),
-            'delivery_address' => 'ул. '.$this->faker->streetName().', д. '.$this->faker->buildingNumber(),
+            'delivery_method' => OrderDeliveryMethod::Pickup,
+            'delivery_city' => null,
+            'delivery_postcode' => null,
+            'delivery_address' => null,
             'comment' => $this->faker->optional(0.3)->sentence(),
             'status' => OrderStatus::New,
             'subtotal' => $subtotal,

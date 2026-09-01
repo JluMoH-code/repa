@@ -7,17 +7,33 @@ use App\Actions\Favorites\FavoriteManager;
 use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Actions\Orders\OrderManager;
+use App\Actions\Settings\SettingsManager;
+use App\Enums\OrderDeliveryMethod;
 use App\Models\Category;
 use App\Models\City;
 use App\Models\Order;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
 
 class CabinetController extends Controller
 {
+    /**
+     * Службы доставки для заготовки блока «Доставка по адресу» в редактировании.
+     *
+     * @var array<int, string>
+     */
+    private const DELIVERY_SERVICES = [
+        'Почта России',
+        'СДЭК',
+        'Яндекс Доставка',
+        'Boxberry',
+        '5Post',
+    ];
+
     public function __construct(
         private readonly CartManager $cart,
         private readonly FavoriteManager $favorites,
@@ -106,7 +122,7 @@ class CabinetController extends Controller
     }
 
     /**
-     * Форма редактирования заказа (контакты/доставка/комментарий; до отправки).
+     * Форма редактирования заказа (контакты/способ получения/комментарий; до отправки).
      */
     public function orderEdit(Order $order): View|RedirectResponse
     {
@@ -118,9 +134,14 @@ class CabinetController extends Controller
                 ->with('status', 'Заказ уже отправлен или завершён — редактирование недоступно.');
         }
 
+        $settings = app(SettingsManager::class);
+
         return view('cabinet.order-edit', [
             'order' => $order,
             'cities' => City::query()->orderBy('name')->get(),
+            'deliveryServices' => self::DELIVERY_SERVICES,
+            'shopAddress' => $settings->get('address'),
+            'shopHours' => $settings->get('work_hours'),
             'footerCategories' => $this->footerCategories(),
         ]);
     }
@@ -133,19 +154,20 @@ class CabinetController extends Controller
         $this->assertOrderBelongs($order);
 
         $data = $request->validate([
+            'delivery_method' => ['required', Rule::in([OrderDeliveryMethod::Pickup->value, OrderDeliveryMethod::Delivery->value])],
             'customer_name' => ['required', 'string', 'max:120'],
             'customer_email' => ['required', 'email', 'max:180'],
             'customer_phone' => ['required', 'string', 'max:30'],
-            'delivery_city' => ['required', 'string', 'max:120'],
+            'delivery_city' => ['nullable', 'string', 'max:120'],
             'delivery_postcode' => ['nullable', 'string', 'max:10'],
-            'delivery_address' => ['required', 'string', 'max:255'],
+            'delivery_address' => ['nullable', 'string', 'max:255'],
             'comment' => ['nullable', 'string', 'max:1000'],
         ], $this->orderMessages());
 
         try {
             $this->orders->updateCustomerData($order, $data);
         } catch (RuntimeException $e) {
-            return back()->withErrors(['order' => $e->getMessage()]);
+            return back()->withErrors(['delivery_method' => $e->getMessage()]);
         }
 
         return redirect()
@@ -188,6 +210,8 @@ class CabinetController extends Controller
     private function orderMessages(): array
     {
         return [
+            'delivery_method.required' => 'Выберите способ получения заказа.',
+            'delivery_method.in' => 'Некорректный способ получения заказа.',
             'customer_name.required' => 'Укажите имя.',
             'customer_name.max' => 'Имя не должно быть длиннее 120 символов.',
             'customer_email.required' => 'Укажите email.',
@@ -195,10 +219,8 @@ class CabinetController extends Controller
             'customer_email.max' => 'Email не должен быть длиннее 180 символов.',
             'customer_phone.required' => 'Укажите телефон.',
             'customer_phone.max' => 'Телефон не должен быть длиннее 30 символов.',
-            'delivery_city.required' => 'Укажите город.',
             'delivery_city.max' => 'Название города не должно быть длиннее 120 символов.',
             'delivery_postcode.max' => 'Индекс не должен быть длиннее 10 символов.',
-            'delivery_address.required' => 'Укажите адрес доставки.',
             'delivery_address.max' => 'Адрес не должен быть длиннее 255 символов.',
             'comment.max' => 'Комментарий не должен быть длиннее 1000 символов.',
         ];

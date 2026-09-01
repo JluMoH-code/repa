@@ -38,13 +38,28 @@
                 </div>
             </x-filament::section>
 
-            <x-filament::section heading="Доставка">
+            <x-filament::section heading="Получение заказа">
                 <div class="text-sm text-gray-600 dark:text-gray-300">
-                    <div>{{ $order->delivery_city }}</div>
-                    @if ($order->delivery_postcode)
-                        <div class="text-gray-500">индекс {{ $order->delivery_postcode }}</div>
+                    @if (($order->delivery_method ?? \App\Enums\OrderDeliveryMethod::Pickup) === \App\Enums\OrderDeliveryMethod::Pickup)
+                        <span class="inline-block rounded-full bg-success-100 px-2 py-0.5 text-xs font-semibold text-success-800">
+                            Самовывоз
+                        </span>
+                        <div class="mt-1 text-gray-500">
+                            Магазин: {{ app(\App\Actions\Settings\SettingsManager::class)->get('address') }}
+                        </div>
+                    @else
+                        <span class="inline-block rounded-full bg-info-100 px-2 py-0.5 text-xs font-semibold text-info-800">
+                            Доставка по адресу
+                        </span>
+                        <div class="mt-1">{{ $order->delivery_city }}</div>
+                        @if ($order->delivery_postcode)
+                            <div class="text-gray-500">индекс {{ $order->delivery_postcode }}</div>
+                        @endif
+                        <div class="mt-0.5">{{ $order->delivery_address }}</div>
+                        @if ($order->delivery_service)
+                            <div class="mt-1 text-xs text-gray-500">Служба: {{ $order->delivery_service }}</div>
+                        @endif
                     @endif
-                    <div class="mt-0.5">{{ $order->delivery_address }}</div>
                 </div>
             </x-filament::section>
 

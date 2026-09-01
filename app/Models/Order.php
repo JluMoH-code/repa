@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OrderDeliveryMethod;
 use App\Enums\OrderStatus;
 use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,8 @@ class Order extends Model
         'customer_name',
         'customer_email',
         'customer_phone',
+        'delivery_method',
+        'delivery_service',
         'delivery_city',
         'delivery_postcode',
         'delivery_address',
@@ -36,6 +39,7 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'delivery_method' => OrderDeliveryMethod::class,
             'status' => OrderStatus::class,
             'placed_at' => 'datetime',
             'subtotal' => 'integer',

@@ -8,10 +8,15 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('checkout.store') }}" class="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_360px]">
+        <form
+            method="POST"
+            action="{{ route('checkout.store') }}"
+            class="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_360px]"
+            x-data="{ method: {{ Illuminate\Support\Js::from(old('delivery_method', 'pickup')) }} }"
+        >
             @csrf
 
-            {{-- Левая колонка: контакты + адрес + комментарий --}}
+            {{-- Левая колонка: контакты + способ получения + комментарий --}}
             <div class="space-y-6">
                 <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h2 class="text-base font-semibold text-slate-900">Контактные данные</h2>
@@ -70,7 +75,89 @@
                     </div>
                 </section>
 
+                {{-- Способ получения: самовывоз / доставка по адресу (до адреса) --}}
                 <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h2 class="text-base font-semibold text-slate-900">Способ получения</h2>
+
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                        <label
+                            class="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors"
+                            :class="method === 'pickup' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-brand-300'"
+                        >
+                            <input type="radio" name="delivery_method" value="pickup" x-model="method" class="mt-0.5 accent-brand-600">
+                            <span>
+                                <span class="block text-sm font-semibold text-slate-800">Самовывоз</span>
+                                <span class="mt-0.5 block text-xs text-slate-500">
+                                    Заберёте заказ из магазина — {{ $shopAddress }}
+                                </span>
+                            </span>
+                        </label>
+
+                        <label
+                            class="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors"
+                            :class="method === 'delivery' ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-brand-300'"
+                        >
+                            <input type="radio" name="delivery_method" value="delivery" x-model="method" class="mt-0.5 accent-brand-600">
+                            <span>
+                                <span class="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                                    Доставка по адресу
+                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">В разработке</span>
+                                </span>
+                                <span class="mt-0.5 block text-xs text-slate-500">Почта России, СДЭК, Яндекс Доставка и другие</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    @error('delivery_method')
+                        <p class="mt-2 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+
+                    {{-- Самовывоз: адрес и часы магазина --}}
+                    <div x-show="method === 'pickup'" x-cloak class="mt-4 rounded-lg bg-slate-50 p-4 text-sm">
+                        <div class="flex items-start gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="mt-0.5 size-4 shrink-0 text-brand-600">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                            </svg>
+                            <div>
+                                <div class="font-semibold text-slate-800">Магазин Repa</div>
+                                <div class="text-slate-600">{{ $shopAddress }}</div>
+                                @if ($shopHours)
+                                    <div class="text-slate-500">Часы работы: {{ $shopHours }}</div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Доставка по адресу: службы доставки (в разработке) --}}
+                    <div x-show="method === 'delivery'" x-cloak class="mt-4 space-y-3">
+                        <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                            Доставка по адресу находится в разработке — пока вы можете оформить только самовывоз.
+                        </p>
+
+                        <div>
+                            <span class="mb-2 block text-sm font-medium text-slate-700">Служба доставки</span>
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                @foreach ($deliveryServices as $service)
+                                    <label class="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 opacity-60">
+                                        <input type="radio" name="delivery_service" value="{{ $service }}" disabled class="accent-brand-600">
+                                        <span class="flex flex-1 items-center justify-between gap-2 text-sm text-slate-600">
+                                            {{ $service }}
+                                            <span class="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-500">В разработке</span>
+                                        </span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {{-- Адрес доставки — заготовка для будущей доставки (скрыт при самовывозе) --}}
+                <section
+                    x-show="method === 'delivery'"
+                    x-cloak
+                    class="rounded-xl border border-slate-200 bg-white p-5 opacity-70 shadow-sm"
+                >
                     <h2 class="text-base font-semibold text-slate-900">Адрес доставки</h2>
 
                     <div class="mt-5 grid gap-4 sm:grid-cols-3">
@@ -81,7 +168,6 @@
                                 name="delivery_city"
                                 id="delivery_city"
                                 :value="old('delivery_city')"
-                                required
                             />
                         </div>
 
@@ -107,7 +193,6 @@
                                 type="text"
                                 name="delivery_address"
                                 value="{{ old('delivery_address') }}"
-                                required
                                 maxlength="255"
                                 placeholder="ул. Цветочная, д. 12, кв. 34"
                                 class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
@@ -166,10 +251,16 @@
 
                 <button
                     type="submit"
-                    class="mt-5 w-full rounded-md bg-brand-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+                    :disabled="method === 'delivery'"
+                    class="mt-5 w-full rounded-md bg-brand-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                     Подтвердить заказ
                 </button>
+
+                {{-- Подсказка при выбранной доставке --}}
+                <p x-show="method === 'delivery'" x-cloak class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-center text-xs font-medium text-amber-700">
+                    Доставка в разработке — выберите самовывоз, чтобы оформить заказ.
+                </p>
 
                 <a href="{{ route('cart.index') }}" class="mt-3 block text-center text-sm font-medium text-slate-600 hover:text-brand-700">
                     Вернуться в корзину

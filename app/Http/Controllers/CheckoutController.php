@@ -6,6 +6,8 @@ use App\Actions\Cart\CartManager;
 use App\Actions\Orders\EmptyCartException;
 use App\Actions\Orders\OrderManager;
 use App\Actions\Orders\ProductUnavailableException;
+use App\Actions\Settings\SettingsManager;
+use App\Enums\OrderDeliveryMethod;
 use App\Models\Category;
 use App\Models\City;
 use App\Models\Order;
@@ -13,11 +15,27 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use RuntimeException;
 use Throwable;
 
 class CheckoutController extends Controller
 {
+    /**
+     * Службы доставки для заготовки блока «Доставка по адресу».
+     * На текущем этапе доставка в разработке — доступен только самовывоз.
+     *
+     * @var array<int, string>
+     */
+    private const DELIVERY_SERVICES = [
+        'Почта России',
+        'СДЭК',
+        'Яндекс Доставка',
+        'Boxberry',
+        '5Post',
+    ];
+
     public function __construct(
         private readonly CartManager $cart,
         private readonly OrderManager $orders,
@@ -37,12 +55,16 @@ class CheckoutController extends Controller
         }
 
         $user = auth()->user();
+        $settings = app(SettingsManager::class);
 
         return view('checkout.index', [
             'lines' => $lines,
             'total' => $this->cart->total(),
             'footerCategories' => $this->footerCategories(),
             'cities' => $this->cities(),
+            'deliveryServices' => self::DELIVERY_SERVICES,
+            'shopAddress' => $settings->get('address'),
+            'shopHours' => $settings->get('work_hours'),
             'defaults' => [
                 'customer_name' => old('customer_name', $user?->name),
                 'customer_email' => old('customer_email', $user?->email),
@@ -57,14 +79,23 @@ class CheckoutController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
+            'delivery_method' => ['required', Rule::in([OrderDeliveryMethod::Pickup->value, OrderDeliveryMethod::Delivery->value])],
             'customer_name' => ['required', 'string', 'max:120'],
             'customer_email' => ['required', 'email', 'max:180'],
             'customer_phone' => ['required', 'string', 'max:30'],
-            'delivery_city' => ['required', 'string', 'max:120'],
+            // Адрес обязателен только для доставки; при самовывозе — не нужен.
+            'delivery_city' => ['nullable', 'string', 'max:120'],
             'delivery_postcode' => ['nullable', 'string', 'max:10'],
-            'delivery_address' => ['required', 'string', 'max:255'],
+            'delivery_address' => ['nullable', 'string', 'max:255'],
             'comment' => ['nullable', 'string', 'max:1000'],
         ], $this->messages());
+
+        // Доставка по адресу — в разработке: оформляем только самовывоз.
+        if ($data['delivery_method'] === OrderDeliveryMethod::Delivery->value) {
+            return back()
+                ->withInput()
+                ->withErrors(['delivery_method' => 'Доставка по адресу находится в разработке — пока доступен только самовывоз по адресу магазина.']);
+        }
 
         try {
             $order = $this->orders->createFromCart(
@@ -74,11 +105,12 @@ class CheckoutController extends Controller
                     'customer_phone' => $data['customer_phone'],
                 ],
                 delivery: [
-                    'delivery_city' => $data['delivery_city'],
+                    'delivery_city' => $data['delivery_city'] ?? null,
                     'delivery_postcode' => $data['delivery_postcode'] ?? null,
-                    'delivery_address' => $data['delivery_address'],
+                    'delivery_address' => $data['delivery_address'] ?? null,
                 ],
                 comment: $data['comment'] ?? null,
+                deliveryMethod: OrderDeliveryMethod::Pickup,
             );
         } catch (EmptyCartException) {
             return redirect()
@@ -88,6 +120,10 @@ class CheckoutController extends Controller
             return back()
                 ->withInput()
                 ->withErrors(['cart' => $e->getMessage()]);
+        } catch (RuntimeException $e) {
+            return back()
+                ->withInput()
+                ->withErrors(['delivery_method' => $e->getMessage()]);
         }
 
         // Авторизованный — на страницу заказа в кабинете; гость — на публичную success-страницу.
@@ -196,6 +232,8 @@ class CheckoutController extends Controller
     private function messages(): array
     {
         return [
+            'delivery_method.required' => 'Выберите способ получения заказа.',
+            'delivery_method.in' => 'Некорректный способ получения заказа.',
             'customer_name.required' => 'Укажите имя.',
             'customer_name.max' => 'Имя не должно быть длиннее 120 символов.',
             'customer_email.required' => 'Укажите email.',
@@ -203,10 +241,8 @@ class CheckoutController extends Controller
             'customer_email.max' => 'Email не должен быть длиннее 180 символов.',
             'customer_phone.required' => 'Укажите телефон.',
             'customer_phone.max' => 'Телефон не должен быть длиннее 30 символов.',
-            'delivery_city.required' => 'Укажите город.',
             'delivery_city.max' => 'Название города не должно быть длиннее 120 символов.',
             'delivery_postcode.max' => 'Индекс не должен быть длиннее 10 символов.',
-            'delivery_address.required' => 'Укажите адрес доставки.',
             'delivery_address.max' => 'Адрес не должен быть длиннее 255 символов.',
             'comment.max' => 'Комментарий не должен быть длиннее 1000 символов.',
         ];

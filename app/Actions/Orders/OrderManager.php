@@ -3,6 +3,7 @@
 namespace App\Actions\Orders;
 
 use App\Actions\Cart\CartManager;
+use App\Enums\OrderDeliveryMethod;
 use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Models\Cart;
@@ -45,13 +46,20 @@ class OrderManager
      * Оформить заказ из текущей корзины.
      *
      * @param  array{customer_name: string, customer_email: string, customer_phone: string}  $customer
-     * @param  array{delivery_city: string, delivery_address: string, delivery_postcode?: string|null}  $delivery
+     * @param  array{delivery_city?: string|null, delivery_address?: string|null, delivery_postcode?: string|null}  $delivery
      *
      * @throws EmptyCartException
      * @throws ProductUnavailableException
+     * @throws RuntimeException если выбран способ «Доставка по адресу» (в разработке)
      */
-    public function createFromCart(array $customer, array $delivery, ?string $comment = null): Order
+    public function createFromCart(array $customer, array $delivery, ?string $comment = null, OrderDeliveryMethod $deliveryMethod = OrderDeliveryMethod::Pickup): Order
     {
+        if ($deliveryMethod === OrderDeliveryMethod::Delivery) {
+            throw new RuntimeException(
+                'Доставка по адресу находится в разработке — пока доступен только самовывоз по адресу магазина.'
+            );
+        }
+
         $user = $this->auth->guard()->check() ? $this->auth->user() : null;
 
         $lines = $user !== null
@@ -72,7 +80,7 @@ class OrderManager
             }
         }
 
-        return DB::transaction(function () use ($lines, $customer, $delivery, $comment, $user) {
+        return DB::transaction(function () use ($lines, $customer, $delivery, $comment, $deliveryMethod, $user) {
             $subtotal = $lines->sum(fn (array $line) => $line['line_total']);
 
             $order = Order::query()->create([
@@ -80,9 +88,12 @@ class OrderManager
                 'customer_name' => $customer['customer_name'],
                 'customer_email' => $customer['customer_email'],
                 'customer_phone' => $this->normalizePhone($customer['customer_phone']),
-                'delivery_city' => $delivery['delivery_city'],
-                'delivery_postcode' => $delivery['delivery_postcode'] ?? null,
-                'delivery_address' => $delivery['delivery_address'],
+                // При самовывозе адрес доставки не нужен — храним только способ получения.
+                'delivery_method' => $deliveryMethod,
+                'delivery_service' => null,
+                'delivery_city' => $deliveryMethod === OrderDeliveryMethod::Delivery ? ($delivery['delivery_city'] ?? null) : null,
+                'delivery_postcode' => $deliveryMethod === OrderDeliveryMethod::Delivery ? ($delivery['delivery_postcode'] ?? null) : null,
+                'delivery_address' => $deliveryMethod === OrderDeliveryMethod::Delivery ? ($delivery['delivery_address'] ?? null) : null,
                 'comment' => $comment !== null && trim($comment) !== '' ? trim($comment) : null,
                 'status' => OrderStatus::New,
                 'subtotal' => $subtotal,
@@ -238,24 +249,37 @@ class OrderManager
     }
 
     /**
-     * Обновить контактные данные и адрес доставки заказа (покупатель,
+     * Обновить контактные данные и способ получения заказа (покупатель,
      * до отправки). Состав заказа не изменяется — цены и снимки фиксированы.
      *
      * @param  array<string, string|null>  $data
      *
-     * @throws RuntimeException если заказ уже отправлен или завершён
+     * @throws RuntimeException если заказ уже отправлен/завершён или выбран
+     *                          способ «Доставка по адресу» (в разработке)
      */
     public function updateCustomerData(Order $order, array $data): void
     {
         $this->assertEditableByCustomer($order);
 
+        $method = isset($data['delivery_method'])
+            ? OrderDeliveryMethod::tryFrom((string) $data['delivery_method'])
+            : $order->delivery_method;
+
+        if ($method === OrderDeliveryMethod::Delivery) {
+            throw new RuntimeException(
+                'Доставка по адресу находится в разработке — пока доступен только самовывоз по адресу магазина.'
+            );
+        }
+
         $order->fill([
             'customer_name' => $data['customer_name'],
             'customer_email' => $data['customer_email'],
             'customer_phone' => $this->normalizePhone((string) $data['customer_phone']),
-            'delivery_city' => $data['delivery_city'],
-            'delivery_postcode' => $data['delivery_postcode'] ?? null,
-            'delivery_address' => $data['delivery_address'],
+            'delivery_method' => $method ?? OrderDeliveryMethod::Pickup,
+            'delivery_service' => null,
+            'delivery_city' => null,
+            'delivery_postcode' => null,
+            'delivery_address' => null,
             'comment' => isset($data['comment']) && trim((string) $data['comment']) !== ''
                 ? trim((string) $data['comment'])
                 : null,

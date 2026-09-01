@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Actions\Orders\OrderManager;
+use App\Enums\OrderDeliveryMethod;
 use App\Enums\OrderStatus;
 use App\Filament\Pages\Orders;
 use App\Filament\Pages\OrderShow;
@@ -57,6 +58,7 @@ class OrderTest extends TestCase
     private function checkoutPayload(array $overrides = []): array
     {
         return array_merge([
+            'delivery_method' => 'pickup',
             'customer_name' => 'Иван Петров',
             'customer_email' => 'guest@example.com',
             'customer_phone' => '+7 (999) 123-45-67',
@@ -145,16 +147,61 @@ class OrderTest extends TestCase
 
         $this->from(route('checkout.create'))
             ->post(route('checkout.store'), [
+                'delivery_method' => 'pickup',
                 'customer_name' => '',
                 'customer_email' => 'not-an-email',
                 'customer_phone' => '',
-                'delivery_city' => '',
-                'delivery_address' => '',
             ])
             ->assertRedirect(route('checkout.create'))
-            ->assertSessionHasErrors(['customer_name', 'customer_email', 'customer_phone', 'delivery_city', 'delivery_address']);
+            ->assertSessionHasErrors(['customer_name', 'customer_email', 'customer_phone']);
 
         $this->assertSame(0, Order::query()->count());
+    }
+
+    public function test_guest_cannot_place_order_with_delivery_method(): void
+    {
+        $this->guestCart();
+
+        $this->from(route('checkout.create'))
+            ->post(route('checkout.store'), $this->checkoutPayload(['delivery_method' => 'delivery']))
+            ->assertRedirect(route('checkout.create'))
+            ->assertSessionHasErrors('delivery_method');
+
+        $this->assertSame(0, Order::query()->count());
+        $this->assertNotNull(session('cart'));
+    }
+
+    public function test_guest_can_place_pickup_order_without_address(): void
+    {
+        $this->guestCart();
+
+        $this->post(route('checkout.store'), $this->checkoutPayload([
+            'delivery_city' => '',
+            'delivery_postcode' => '',
+            'delivery_address' => '',
+        ]))->assertRedirect(route('checkout.success', [
+            'order' => Order::query()->firstOrFail()->number,
+            'email' => 'guest@example.com',
+        ]));
+
+        $this->assertDatabaseHas('orders', [
+            'delivery_method' => 'pickup',
+            'delivery_city' => null,
+            'delivery_address' => null,
+        ]);
+    }
+
+    public function test_checkout_renders_delivery_method_selector(): void
+    {
+        $this->guestCart();
+
+        $this->get(route('checkout.create'))
+            ->assertOk()
+            ->assertSee('Самовывоз')
+            ->assertSee('Доставка по адресу')
+            ->assertSee('В разработке')
+            ->assertSee('Почта России')
+            ->assertSee('СДЭК');
     }
 
     public function test_authenticated_user_checkout_prefilled_from_profile(): void
@@ -609,12 +656,10 @@ class OrderTest extends TestCase
         ]);
 
         $this->actingAs($user)->put(route('cabinet.orders.update', $order), [
+            'delivery_method' => 'pickup',
             'customer_name' => 'Новое имя',
             'customer_email' => 'new@example.com',
             'customer_phone' => '+7 (999) 000-11-22',
-            'delivery_city' => 'Волгоград',
-            'delivery_postcode' => '400001',
-            'delivery_address' => 'пр. Ленина, 28',
             'comment' => 'Обновлённый комментарий',
         ])->assertRedirect(route('cabinet.orders.show', $order));
 
@@ -623,10 +668,29 @@ class OrderTest extends TestCase
         $this->assertSame('Новое имя', $order->customer_name);
         $this->assertSame('new@example.com', $order->customer_email);
         $this->assertSame('+79990001122', $order->customer_phone);
-        $this->assertSame('Волгоград', $order->delivery_city);
-        $this->assertSame('400001', $order->delivery_postcode);
+        $this->assertSame(OrderDeliveryMethod::Pickup, $order->delivery_method);
+        $this->assertNull($order->delivery_city);
+        $this->assertNull($order->delivery_address);
         $this->assertSame('Обновлённый комментарий', $order->comment);
         $this->assertSame(1, $order->items()->count());
+    }
+
+    public function test_customer_cannot_edit_order_to_delivery(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->forUser($user)->create(['status' => OrderStatus::New]);
+
+        $this->actingAs($user)->from(route('cabinet.orders.edit', $order))
+            ->put(route('cabinet.orders.update', $order), [
+                'delivery_method' => 'delivery',
+                'customer_name' => $order->customer_name,
+                'customer_email' => $order->customer_email,
+                'customer_phone' => $order->customer_phone,
+            ])
+            ->assertRedirect(route('cabinet.orders.edit', $order))
+            ->assertSessionHasErrors('delivery_method');
+
+        $this->assertSame(OrderDeliveryMethod::Pickup, $order->refresh()->delivery_method);
     }
 
     public function test_customer_cannot_edit_shipped_order(): void
@@ -638,17 +702,16 @@ class OrderTest extends TestCase
         ]);
 
         // Контроллер при ошибке делает back() — тестируем с from(), чтобы
-        // back() вернулся на форму редактирования.
+        // back() вернулся на форму редактирования. Ошибка кладётся в delivery_method.
         $this->actingAs($user)->from(route('cabinet.orders.edit', $order))
             ->put(route('cabinet.orders.update', $order), [
+                'delivery_method' => 'pickup',
                 'customer_name' => $order->customer_name,
                 'customer_email' => $order->customer_email,
                 'customer_phone' => $order->customer_phone,
-                'delivery_city' => $order->delivery_city,
-                'delivery_address' => 'Новый адрес',
             ])
             ->assertRedirect(route('cabinet.orders.edit', $order))
-            ->assertSessionHasErrors('order');
+            ->assertSessionHasErrors('delivery_method');
 
         $this->assertSame('Старый адрес', $order->refresh()->delivery_address);
     }
@@ -670,14 +733,13 @@ class OrderTest extends TestCase
 
         $this->actingAs($user)->from(route('cabinet.orders.edit', $order))
             ->put(route('cabinet.orders.update', $order), [
+                'delivery_method' => 'pickup',
                 'customer_name' => '',
                 'customer_email' => 'not-an-email',
                 'customer_phone' => '',
-                'delivery_city' => '',
-                'delivery_address' => '',
             ])
             ->assertRedirect(route('cabinet.orders.edit', $order))
-            ->assertSessionHasErrors(['customer_name', 'customer_email', 'customer_phone', 'delivery_city', 'delivery_address']);
+            ->assertSessionHasErrors(['customer_name', 'customer_email', 'customer_phone']);
     }
 
     public function test_guest_cannot_access_order_edit(): void
