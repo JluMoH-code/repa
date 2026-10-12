@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Categories\Tables;
 
+use App\Filament\Resources\Categories\CategoryResource;
 use App\Models\Category;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
@@ -18,7 +20,7 @@ class CategoriesTable
     {
         return $table
             ->query(
-                Category::query()->orderByRaw('COALESCE(parent_id, id), parent_id ASC NULLS FIRST, sort_order ASC')
+                Category::query()->with('parent')->orderByRaw('COALESCE(parent_id, id), parent_id ASC NULLS FIRST, sort_order ASC')
             )
             ->columns([
                 ImageColumn::make('image')
@@ -27,31 +29,34 @@ class CategoriesTable
                     ->circular()
                     ->width(36),
                 TextColumn::make('name')
-                    ->label('Название')
+                    ->label('Категория')
+                    ->weight('semibold')
+                    ->description(fn (Category $record) => $record->parent ? 'В разделе «'.$record->parent->name.'»' : 'Раздел верхнего уровня')
                     ->formatStateUsing(fn (Category $record) => ($record->parent_id ? '— ' : '').$record->name)
                     ->searchable(),
-                TextColumn::make('parent.name')
-                    ->label('Родитель')
-                    ->placeholder('— корневая —')
-                    ->toggleable(),
                 TextColumn::make('products_count')
                     ->label('Товаров')
                     ->counts('products')
                     ->sortable(),
                 TextColumn::make('sort_order')
-                    ->label('Порядок')
+                    ->label('Позиция в меню')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->numeric()
                     ->sortable(),
                 IconColumn::make('is_active')
-                    ->label('Активна')
+                    ->label('На сайте')
                     ->boolean(),
             ])
+            ->recordUrl(fn (Category $record) => CategoryResource::getUrl('edit', ['record' => $record]))
+            ->emptyStateHeading('Добавьте первую категорию')
+            ->emptyStateDescription('Начните с раздела, например «Овощи». Внутри можно создать «Томаты» и «Огурцы».')
+            ->searchPlaceholder('Найти категорию')
             ->filters([
                 //
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make()
+                EditAction::make()->label('Изменить')->icon('heroicon-o-pencil-square'),
+                ActionGroup::make([DeleteAction::make()
                     ->before(function (Category $record, DeleteAction $action) {
                         try {
                             // Проверка выполняется здесь же, чтобы показать понятное
@@ -70,7 +75,7 @@ class CategoriesTable
 
                             $action->cancel();
                         }
-                    }),
+                    })])->icon('heroicon-o-ellipsis-horizontal')->label('Другие действия'),
             ])
             ->toolbarActions([
                 //

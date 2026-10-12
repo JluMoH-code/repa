@@ -16,4 +16,14 @@ class EditManufacturer extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    public function getHeading(): string
+    {
+        return 'Редактирование производителя';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Название на упаковке поможет связать товары одного бренда.';
+    }
 }

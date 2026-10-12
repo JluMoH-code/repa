@@ -22,9 +22,9 @@ class ShopSettings extends Page implements HasForms
 
     protected static ?string $navigationLabel = 'Настройки магазина';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Настройки';
+    protected static string|\UnitEnum|null $navigationGroup = 'Сайт';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
 
     /** @var array<string, string|null> */
     public ?array $data = [];

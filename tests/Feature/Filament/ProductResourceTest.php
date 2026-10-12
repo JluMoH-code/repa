@@ -68,6 +68,32 @@ class ProductResourceTest extends TestCase
         ]);
     }
 
+    public function test_can_create_products_without_sku_with_package_size(): void
+    {
+        $category = Category::factory()->create();
+
+        foreach (['0,5 г', '5 м', '20 шт.'] as $index => $size) {
+            Livewire::test(CreateProduct::class)
+                ->fillForm([
+                    'name' => 'Семена '.$index,
+                    'slug' => 'seed-package-'.$index,
+                    'category_id' => $category->id,
+                    'sku' => null,
+                    'package_size' => $size,
+                    'price' => 120,
+                    'status' => ProductStatus::Draft->value,
+                ])
+                ->call('create')
+                ->assertHasNoFormErrors();
+
+            $this->assertDatabaseHas('products', [
+                'slug' => 'seed-package-'.$index,
+                'sku' => null,
+                'package_size' => $size,
+            ]);
+        }
+    }
+
     public function test_price_is_entered_in_rubles_and_stored_in_kopecks(): void
     {
         $category = Category::factory()->create();

@@ -16,4 +16,14 @@ class EditFilterGroup extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    public function getHeading(): string
+    {
+        return 'Редактирование фильтра';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Добавьте варианты выбора, затем назначьте их товарам в карточках.';
+    }
 }

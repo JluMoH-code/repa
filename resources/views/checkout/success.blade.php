@@ -34,7 +34,7 @@
                 <ul class="divide-y divide-slate-100 text-left">
                     @foreach ($order->items as $item)
                         <li class="flex items-center justify-between gap-3 px-4 py-2 text-sm">
-                            <span class="line-clamp-1 text-slate-700">{{ $item->product_name }} × {{ $item->quantity }}</span>
+                            <span class="line-clamp-1 text-slate-700">{{ $item->product_name }} {{ $item->variant_label }} × {{ $item->quantity }}</span>
                             <span class="whitespace-nowrap font-semibold text-slate-900">
                                 {{ number_format($item->line_total / 100, 0, ',', ' ') }} ₽
                             </span>

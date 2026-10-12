@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\GrowingPlace;
 use App\Enums\ProductStatus;
 use App\Enums\RipeningPeriod;
+use App\Models\Concerns\HasInventory;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +21,7 @@ use Spatie\Sluggable\SlugOptions;
 class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
-    use HasFactory, HasSlug;
+    use HasFactory, HasInventory, HasSlug;
 
     /**
      * Фиксированный список культур — единый источник правды для формы в админке
@@ -67,12 +68,13 @@ class Product extends Model
         'old_price',
         'unit',
         'seed_count',
+        'package_size',
         'status',
         'is_active',
         'is_discountable',
         'is_bestseller',
         'is_recommended',
-        'in_stock',
+        'in_stock', 'stock_quantity', 'reserved_quantity',
         'rating',
         'culture',
         'ripening',
@@ -88,6 +90,8 @@ class Product extends Model
     {
         return [
             'price' => 'integer',
+            'stock_quantity' => 'integer',
+            'reserved_quantity' => 'integer',
             'old_price' => 'integer',
             'seed_count' => 'integer',
             'status' => ProductStatus::class,

@@ -4,6 +4,7 @@ use App\Http\Controllers\CabinetController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\ContentController;
 use App\Http\Controllers\DemoProductPageController;
 use App\Http\Controllers\FavoritesController;
 use App\Http\Controllers\HomeController;
@@ -13,6 +14,10 @@ use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('storefront');
+
+Route::get('/articles', [ContentController::class, 'index'])->name('articles.index');
+Route::get('/articles/{slug}', [ContentController::class, 'article'])->name('articles.show');
+Route::get('/pages/{slug}', [ContentController::class, 'page'])->name('pages.show');
 
 // Страница товара
 Route::get('/product/{product}', [ProductController::class, 'show'])->name('products.show');

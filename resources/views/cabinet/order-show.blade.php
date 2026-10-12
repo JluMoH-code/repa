@@ -193,7 +193,7 @@
                                 <tr class="border-b border-slate-100 last:border-0">
                                     <td class="px-5 py-3 text-slate-800">
                                         <a href="{{ route('products.show', $item->product) }}" class="hover:text-brand-700">
-                                            {{ $item->product_name }}
+                                            {{ $item->product_name }} {{ $item->variant_label }}
                                         </a>
                                     </td>
                                     <td class="whitespace-nowrap px-5 py-3 text-slate-600">

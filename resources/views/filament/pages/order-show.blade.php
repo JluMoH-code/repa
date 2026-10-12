@@ -9,7 +9,7 @@
         };
     @endphp
 
-    <div class="space-y-6">
+    <div class="rp-workspace rp-order-detail space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
                 <a href="{{ \App\Filament\Pages\Orders::getUrl() }}"
@@ -68,14 +68,14 @@
                     <div class="flex-1">
                         <select
                             wire:model="newStatus"
-                            class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                            class="rp-input w-full"
                         >
                             @foreach ($this->getStatuses() as $status)
                                 <option value="{{ $status->value }}">{{ $status->getLabel() }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <x-filament::button type="submit" wire:loading.attr="disabled" wire:target="saveStatus">
+                    <x-filament::button type="submit" wire:loading.attr="disabled" wire:target="saveStatus" :disabled="$order->status->isFinal()">
                         Сохранить
                     </x-filament::button>
                 </form>
@@ -92,8 +92,8 @@
         @endif
 
         <x-filament::section heading="Состав заказа">
-            <div class="overflow-x-auto rounded-lg border">
-                <table class="min-w-full text-sm">
+            <div class="rp-order-table-wrap">
+                <table class="rp-order-table">
                     <thead class="bg-gray-50 dark:bg-gray-900">
                         <tr class="text-left text-xs uppercase tracking-wide text-gray-500">
                             <th class="px-3 py-2 font-medium">Товар</th>
@@ -102,11 +102,12 @@
                             <th class="px-3 py-2 text-right font-medium">Сумма</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y">
+                    <tbody >
                         @foreach ($order->items as $item)
                             <tr>
                                 <td class="px-3 py-2 text-gray-800 dark:text-gray-200">
                                     {{ $item->product_name }}
+                                    @if ($item->variant_label)<span class="rp-muted"> · {{ $item->variant_label }}</span>@endif
                                     @if ($item->product)
                                         <a href="{{ route('filament.admin.resources.products.edit', $item->product) }}"
                                             class="ml-1 text-xs text-primary-600 hover:underline">
@@ -115,11 +116,15 @@
                                     @endif
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-2 text-gray-600 dark:text-gray-300">
-                                    {{ number_format($item->price / 100, 0, ',', ' ') }} ₽
+                                    {{ number_format($item->price / 100, 2, ',', ' ') }} ₽
                                 </td>
-                                <td class="px-3 py-2 text-gray-600 dark:text-gray-300">{{ $item->quantity }}</td>
+                                <td class="px-3 py-2 text-gray-600 dark:text-gray-300">
+                                    @if (app(\App\Actions\Orders\OrderManager::class)->isEditableByCustomer($order))
+                                        <input type="number" min="1" max="99" wire:model="itemQuantities.{{ $item->id }}" class="rp-input" aria-label="Количество {{ $item->product_name }} {{ $item->variant_label }}">
+                                    @else {{ $item->quantity }} @endif
+                                </td>
                                 <td class="whitespace-nowrap px-3 py-2 text-right font-semibold text-gray-800 dark:text-gray-200">
-                                    {{ number_format($item->line_total / 100, 0, ',', ' ') }} ₽
+                                    {{ number_format($item->line_total / 100, 2, ',', ' ') }} ₽
                                 </td>
                             </tr>
                         @endforeach
@@ -127,10 +132,15 @@
                 </table>
             </div>
 
-            <div class="mt-3 flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-800">
+            @if (app(\App\Actions\Orders\OrderManager::class)->isEditableByCustomer($order))
+                @foreach ($errors->all() as $error)<p class="rp-error">{{ $error }}</p>@endforeach
+                <x-filament::button wire:click="saveQuantities" wire:loading.attr="disabled" wire:target="saveQuantities">Сохранить количество</x-filament::button>
+            @endif
+
+            <div class="rp-order-total">
                 <span class="text-sm font-medium text-gray-500">Итого</span>
                 <span class="text-xl font-bold text-gray-900 dark:text-white">
-                    {{ number_format($order->total / 100, 0, ',', ' ') }} ₽
+                    {{ number_format($order->total / 100, 2, ',', ' ') }} ₽
                 </span>
             </div>
         </x-filament::section>

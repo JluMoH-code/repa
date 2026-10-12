@@ -5,298 +5,208 @@ namespace App\Actions\Cart;
 use App\Enums\ProductStatus;
 use App\Models\Cart;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Validation\ValidationException;
 
-/**
- * Единая точка работы с корзиной:
- * - гость — данные в сессии (ключ `cart`: [product_id => quantity]);
- * - авторизованный — строки в таблице `carts` (одна строка на товар);
- * - при входе гостевая корзина сливается с корзиной пользователя
- *   (см. App\Listeners\MergeCartOnLogin).
- *
- * Регистрируется как singleton в AppServiceProvider: количества кэшируются
- * на время запроса, чтобы шапка и карточки товаров не делали N+1 запросов.
- */
 class CartManager
 {
-    private const SESSION_KEY = 'cart';
-
-    /** @var array<int, int>|null */
     private ?array $quantitiesCache = null;
 
     public function __construct(private readonly AuthFactory $auth) {}
 
-    /**
-     * Позиции корзины.
-     *
-     * @return Collection<int, array{product: Product, quantity: int, line_total: int}>
-     */
+    public static function lineKey(int $productId, ?int $variantId = null): int|string
+    {
+        return $variantId === null ? $productId : $productId.':'.$variantId;
+    }
+
+    private function identity(int|string $key): array
+    {
+        $parts = explode(':', (string) $key);
+
+        return [(int) $parts[0], isset($parts[1]) ? (int) $parts[1] : null];
+    }
+
     public function lines(): Collection
     {
         $quantities = $this->quantities();
-
-        if ($quantities === []) {
-            return collect();
+        $ids = array_map(fn ($key) => $this->identity($key)[0], array_keys($quantities));
+        $products = Product::with(['images', 'variants'])->whereKey($ids)->get()->keyBy('id');
+        foreach ($quantities as $key => $quantity) {
+            [$id, $variantId] = $this->identity($key);
+            $product = $products->get($id);
+            if ($variantId === null && $product && $product->variants->isNotEmpty()) {
+                $variant = $this->resolveVariant($product);
+                $newKey = self::lineKey($id, $variant->id);
+                $merged = min(Cart::MAX_QUANTITY, $quantity + ($quantities[$newKey] ?? 0));
+                $this->remove($id);
+                $this->write($product, $variant, $merged, $newKey);
+                unset($quantities[$key]);
+                $quantities[$newKey] = $merged;
+            }
         }
 
-        $products = Product::query()
-            ->with('images')
-            ->whereKey(array_keys($quantities))
-            ->get()
-            ->keyBy('id');
-
-        return collect($quantities)
-            ->filter(fn (int $quantity, int $productId): bool => $products->has($productId))
-            ->map(fn (int $quantity, int $productId): array => [
-                'product' => $products[$productId],
-                'quantity' => $quantity,
-                'line_total' => $products[$productId]->price * $quantity,
-            ])
-            ->values();
-    }
-
-    /**
-     * Добавить товар (количество увеличивается при повторном добавлении).
-     */
-    public function add(Product $product, int $quantity = 1): void
-    {
-        $quantity = $this->clamp($quantity);
-
-        if ($this->isGuest()) {
-            $items = $this->sessionItems();
-            $items[$product->id] = min(Cart::MAX_QUANTITY, ($items[$product->id] ?? 0) + $quantity);
-            $this->saveSessionItems($items);
-            $this->forgetCache();
-
-            return;
-        }
-
-        $item = Cart::query()->firstOrNew([
-            'user_id' => $this->auth->id(),
-            'product_id' => $product->id,
-        ]);
-        $item->quantity = min(Cart::MAX_QUANTITY, ($item->exists ? $item->quantity : 0) + $quantity);
-        $item->save();
-        $this->forgetCache();
-    }
-
-    /**
-     * Задать количество позиции (абсолютное значение, минимум 1).
-     */
-    public function updateQuantity(Product $product, int $quantity): void
-    {
-        $quantity = $this->clamp($quantity);
-
-        if ($this->isGuest()) {
-            $items = $this->sessionItems();
-
-            if (! array_key_exists($product->id, $items)) {
-                return;
+        return collect($quantities)->map(function ($quantity, $key) use ($products) {
+            [$id, $variantId] = $this->identity($key);
+            $product = $products->get($id);
+            $variant = $variantId === null ? null : $product?->variants->firstWhere('id', $variantId);
+            if (! $product || ($variantId !== null && ! $variant)) {
+                return null;
             }
 
-            $items[$product->id] = $quantity;
-            $this->saveSessionItems($items);
-            $this->forgetCache();
-
-            return;
-        }
-
-        Cart::query()
-            ->where('user_id', $this->auth->id())
-            ->where('product_id', $product->id)
-            ->update(['quantity' => $quantity]);
-        $this->forgetCache();
+            return ['product' => $product, 'variant' => $variant, 'key' => $key, 'price' => $variant?->price ?? $product->price, 'quantity' => (int) $quantity, 'line_total' => ($variant?->price ?? $product->price) * $quantity];
+        })->filter()->values();
     }
 
-    /**
-     * Убрать позицию из корзины.
-     */
-    public function remove(int $productId): void
+    public function add(Product $product, int $quantity = 1, ?ProductVariant $variant = null): void
+    {
+        $variant = $this->resolveVariant($product, $variant);
+        $this->validateVariant($product, $variant);
+        $key = self::lineKey($product->id, $variant?->id);
+        $quantity = min(Cart::MAX_QUANTITY, $this->quantity($product->id, $variant?->id) + $this->clamp($quantity));
+        $this->assertStock($product, $variant, $quantity);
+        $this->write($product, $variant, $quantity, $key);
+    }
+
+    public function updateQuantity(Product $product, int $quantity, ?ProductVariant $variant = null): void
+    {
+        $variant = $this->resolveVariant($product, $variant);
+        $this->validateVariant($product, $variant);
+        if (! $this->contains($product, $variant?->id)) {
+            return;
+        }
+        $quantity = $this->clamp($quantity);
+        $this->assertStock($product, $variant, $quantity);
+        $this->write($product, $variant, $quantity, self::lineKey($product->id, $variant?->id));
+    }
+
+    private function write(Product $product, ?ProductVariant $variant, int $quantity, int|string $key): void
     {
         if ($this->isGuest()) {
             $items = $this->sessionItems();
-            unset($items[$productId]);
-            $this->saveSessionItems($items);
-            $this->forgetCache();
-
-            return;
+            $items[$key] = $quantity;
+            Session::put('cart', $items);
+        } else {
+            Cart::updateOrCreate(['user_id' => $this->auth->id(), 'product_id' => $product->id, 'product_variant_id' => $variant?->id], ['quantity' => $quantity]);
         }
-
-        Cart::query()
-            ->where('user_id', $this->auth->id())
-            ->where('product_id', $productId)
-            ->delete();
-        $this->forgetCache();
+        $this->quantitiesCache = null;
     }
 
-    /**
-     * Полностью очистить корзину.
-     */
+    public function remove(int $productId, ?int $variantId = null): void
+    {
+        if ($this->isGuest()) {
+            $items = $this->sessionItems();
+            unset($items[self::lineKey($productId, $variantId)]);
+            Session::put('cart', $items);
+        } else {
+            Cart::where('user_id', $this->auth->id())->where('product_id', $productId)->where('product_variant_id', $variantId)->delete();
+        }
+        $this->quantitiesCache = null;
+    }
+
     public function clear(): void
     {
         if ($this->isGuest()) {
-            Session::forget(self::SESSION_KEY);
-            $this->forgetCache();
-
-            return;
+            Session::forget('cart');
+        } else {
+            Cart::where('user_id', $this->auth->id())->delete();
         }
-
-        Cart::query()->where('user_id', $this->auth->id())->delete();
-        $this->forgetCache();
+        $this->quantitiesCache = null;
     }
 
-    /**
-     * Количество единиц товара в корзине (0 — товара нет в корзине).
-     * Используется карточками товаров и страницей товара.
-     */
-    public function quantity(int $productId): int
+    public function quantity(int $productId, ?int $variantId = null): int
     {
-        return $this->quantities()[$productId] ?? 0;
+        return $this->quantities()[self::lineKey($productId, $variantId)] ?? 0;
     }
 
-    /**
-     * Есть ли товар в корзине.
-     */
-    public function contains(Product $product): bool
+    public function contains(Product $product, ?int $variantId = null): bool
     {
-        if ($this->isGuest()) {
-            return array_key_exists($product->id, $this->sessionItems());
-        }
-
-        return Cart::query()
-            ->where('user_id', $this->auth->id())
-            ->where('product_id', $product->id)
-            ->exists();
+        return $this->quantity($product->id, $variantId) > 0;
     }
 
-    /**
-     * Суммарное количество единиц товара в корзине (счётчик в шапке).
-     */
     public function count(): int
     {
         return array_sum($this->quantities());
     }
 
-    /**
-     * Итоговая сумма корзины в копейках.
-     */
     public function total(): int
     {
         return $this->lines()->sum('line_total');
     }
 
-    /**
-     * Можно ли добавить товар в корзину: опубликован, активен и в наличии
-     * (у товара с вариантами — хотя бы один вариант в наличии).
-     */
-    public function isAvailable(Product $product): bool
+    public function isAvailable(Product $product, ?ProductVariant $variant = null): bool
     {
         if ($product->status !== ProductStatus::Published || ! $product->is_active) {
             return false;
         }
-
+        if ($variant !== null) {
+            return $variant->product_id === $product->id && $variant->hasAvailableStock();
+        }
         $product->loadMissing('variants');
 
-        return $product->variants->isNotEmpty()
-            ? $product->variants->contains('in_stock', true)
-            : (bool) $product->in_stock;
+        return $product->variants->isNotEmpty() ? $product->variants->contains(fn ($v) => $v->hasAvailableStock()) : $product->hasAvailableStock();
     }
 
-    /**
-     * Слить гостевую (сессионную) корзину с корзиной пользователя и очистить сессию.
-     * Вызывается при успешном входе (событие Illuminate\Auth\Events\Login).
-     *
-     * Важно: в момент события пользователь уже авторизован, поэтому очищаем
-     * ТОЛЬКО сессионную корзину — `clear()` здесь не подходит (он затирает
-     * только что созданные строки БД).
-     */
+    private function validateVariant(Product $product, ?ProductVariant $variant): void
+    {
+        if ($variant !== null && $variant->product_id !== $product->id) {
+            throw ValidationException::withMessages(['variant_id' => 'Фасовка не принадлежит этому товару.']);
+        }
+    }
+
+    public function resolveVariant(Product $product, ?ProductVariant $variant = null): ?ProductVariant
+    {
+        $this->validateVariant($product, $variant);
+        if ($variant !== null) {
+            return $variant;
+        }
+        $product->loadMissing('variants');
+
+        return $product->variants->first(fn ($v) => $v->hasAvailableStock()) ?? $product->variants->first();
+    }
+
+    private function assertStock(Product $product, ?ProductVariant $variant, int $quantity): void
+    {
+        $this->validateVariant($product, $variant);
+        $target = $variant ?? $product;
+        if ($target->stock_quantity !== null && $quantity > $target->availableQuantity()) {
+            throw ValidationException::withMessages(['quantity' => 'Недостаточно свободного остатка.']);
+        }
+    }
+
     public function mergeGuestCart(User $user): void
     {
-        $sessionItems = $this->sessionItems();
-
-        if ($sessionItems === []) {
-            return;
-        }
-
-        $products = Product::query()
-            ->whereKey(array_keys($sessionItems))
-            ->get()
-            ->keyBy('id');
-
-        foreach ($sessionItems as $productId => $quantity) {
-            $product = $products->get($productId);
-
-            if ($product === null) {
+        foreach ($this->sessionItems() as $key => $quantity) {
+            [$id, $variantId] = $this->identity($key);
+            if (! Product::whereKey($id)->exists() || ($variantId !== null && ! ProductVariant::whereKey($variantId)->where('product_id', $id)->exists())) {
                 continue;
             }
-
-            $item = Cart::query()->firstOrNew([
-                'user_id' => $user->id,
-                'product_id' => $productId,
-            ]);
-            $item->quantity = min(Cart::MAX_QUANTITY, ($item->exists ? $item->quantity : 0) + $quantity);
+            $item = Cart::firstOrNew(['user_id' => $user->id, 'product_id' => $id, 'product_variant_id' => $variantId]);
+            $item->quantity = min(Cart::MAX_QUANTITY, ($item->quantity ?? 0) + $quantity);
             $item->save();
         }
+        Session::forget('cart');
+        $this->quantitiesCache = null;
+    }
 
-        Session::forget(self::SESSION_KEY);
-        $this->forgetCache();
+    public function quantities(): array
+    {
+        return $this->quantitiesCache ??= $this->isGuest() ? $this->sessionItems() : Cart::where('user_id', $this->auth->id())->get()->mapWithKeys(fn ($row) => [self::lineKey($row->product_id, $row->product_variant_id) => $row->quantity])->all();
+    }
+
+    private function sessionItems(): array
+    {
+        $items = Session::get('cart', []);
+
+        return is_array($items) ? array_filter($items, fn ($quantity, $key) => preg_match('/^\d+(?::\d+)?$/', (string) $key) && is_numeric($quantity) && $quantity > 0, ARRAY_FILTER_USE_BOTH) : [];
     }
 
     private function isGuest(): bool
     {
         return ! $this->auth->guard()->check();
-    }
-
-    /**
-     * Текущие количества по product_id (сессия или БД).
-     * Кэшируются на время запроса — см. singleton в AppServiceProvider.
-     * Используется шапкой, карточками товаров и эндпоинтом синхронизации
-     * корзины при возврате «назад» (bfcache).
-     *
-     * @return array<int, int>
-     */
-    public function quantities(): array
-    {
-        if ($this->quantitiesCache !== null) {
-            return $this->quantitiesCache;
-        }
-
-        $quantities = $this->isGuest()
-            ? $this->sessionItems()
-            : Cart::query()
-                ->where('user_id', $this->auth->id())
-                ->pluck('quantity', 'product_id')
-                ->all();
-
-        $this->quantitiesCache = $quantities;
-
-        return $quantities;
-    }
-
-    private function forgetCache(): void
-    {
-        $this->quantitiesCache = null;
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function sessionItems(): array
-    {
-        $items = Session::get(self::SESSION_KEY, []);
-
-        return is_array($items) ? $items : [];
-    }
-
-    /**
-     * @param  array<int, int>  $items
-     */
-    private function saveSessionItems(array $items): void
-    {
-        Session::put(self::SESSION_KEY, $items);
     }
 
     private function clamp(int $quantity): int

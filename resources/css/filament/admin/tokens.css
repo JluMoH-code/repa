@@ -1,0 +1,15 @@
+/* Hallmark · workspace shell · Repa green · local Inter · density 24px */
+:root {
+    --rp-paper: oklch(98% 0.007 145);
+    --rp-surface: oklch(100% 0 0);
+    --rp-ink: oklch(25% 0.018 150);
+    --rp-muted: oklch(47% 0.02 150);
+    --rp-rule: oklch(89% 0.013 145);
+    --rp-accent: oklch(43% 0.12 145);
+    --rp-soft: oklch(95% 0.025 145);
+    --rp-danger: oklch(45% 0.17 25);
+    --rp-warning: oklch(45% 0.09 65);
+    --rp-font: var(--font-family, Inter, sans-serif);
+    --rp-space: 1.5rem;
+    --rp-radius: 0.625rem;
+}

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Manufacturers\Tables;
 
+use App\Filament\Resources\Manufacturers\ManufacturerResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -21,7 +22,8 @@ class ManufacturersTable
                     ->circular()
                     ->width(36),
                 TextColumn::make('name')
-                    ->label('Название')
+                    ->label('Производитель')
+                    ->weight('semibold')
                     ->searchable(),
                 TextColumn::make('products_count')
                     ->label('Товаров')
@@ -33,11 +35,15 @@ class ManufacturersTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->recordUrl(fn ($record) => ManufacturerResource::getUrl('edit', ['record' => $record]))
+            ->emptyStateHeading('Добавьте первого производителя')
+            ->emptyStateDescription('Укажите название бренда с упаковки. Затем его можно выбрать в карточке товара.')
+            ->searchPlaceholder('Найти производителя')
             ->filters([
                 //
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()->label('Изменить')->icon('heroicon-o-pencil-square'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

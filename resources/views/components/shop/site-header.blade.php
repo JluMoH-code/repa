@@ -68,4 +68,8 @@
             </a>
         </div>
     </div>
+    <nav aria-label="Информация магазина" class="mx-auto flex max-w-7xl flex-wrap gap-4 px-4 pb-3 text-sm">
+        <a href="{{ route('articles.index') }}" class="hover:text-brand-700">Статьи</a>
+        @foreach(\App\Models\MenuLink::publicLinks('header') as $menuLink)<a href="{{ $menuLink->url }}" class="hover:text-brand-700">{{ $menuLink->label }}</a>@endforeach
+    </nav>
 </header>

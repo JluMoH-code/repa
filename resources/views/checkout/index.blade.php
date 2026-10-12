@@ -228,7 +228,7 @@
                     @foreach ($lines as $line)
                         <div class="flex justify-between gap-3">
                             <dt class="line-clamp-1 text-slate-500">
-                                {{ $line['product']->name }} × {{ $line['quantity'] }}
+                                {{ $line['product']->name }} {{ $line['variant']?->label }} × {{ $line['quantity'] }}
                             </dt>
                             <dd class="whitespace-nowrap font-medium text-slate-800">
                                 {{ number_format($line['line_total'] / 100, 0, ',', ' ') }} ₽

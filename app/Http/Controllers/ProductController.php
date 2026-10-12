@@ -54,11 +54,11 @@ class ProductController extends Controller
             $product->manufacturer ? ['label' => 'Производитель', 'value' => $product->manufacturer->name] : null,
             $product->culture ? ['label' => 'Культура', 'value' => $product->culture, 'highlight' => true] : null,
             $product->ripening ? ['label' => 'Срок созревания', 'value' => $product->ripening->getLabel()] : null,
-            $product->growing_place ? ['label' => 'Назначение', 'value' => $product->growing_place->getLabel()] : null,
+            $product->growing_place ? ['label' => 'Место выращивания', 'value' => $product->growing_place->getLabel()] : null,
             $product->is_hybrid !== null ? ['label' => 'Гибрид', 'value' => $product->is_hybrid ? 'Да (F1)' : 'Нет'] : null,
             $product->series ? ['label' => 'Серия', 'value' => $product->series] : null,
-            $product->seed_count ? ['label' => 'Семян в упаковке', 'value' => $product->seed_count.' шт.'] : null,
-            ['label' => 'Артикул', 'value' => $product->sku],
+            $product->package_size || $product->seed_count ? ['label' => 'Вес, метраж или количество семян', 'value' => $product->package_size ?: $product->seed_count.' шт.'] : null,
+            $product->sku ? ['label' => 'Артикул', 'value' => $product->sku] : null,
         ]);
 
         $extraAttributes = collect($product->attributes ?? [])

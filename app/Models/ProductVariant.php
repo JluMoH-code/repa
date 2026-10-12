@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasInventory;
 use Database\Factories\ProductVariantFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,14 +12,16 @@ use InvalidArgumentException;
 class ProductVariant extends Model
 {
     /** @use HasFactory<ProductVariantFactory> */
-    use HasFactory;
+    use HasFactory, HasInventory;
 
-    protected $fillable = ['product_id', 'label', 'price', 'in_stock', 'sort_order'];
+    protected $fillable = ['product_id', 'label', 'price', 'in_stock', 'stock_quantity', 'reserved_quantity', 'sort_order'];
 
     protected function casts(): array
     {
         return [
             'price' => 'integer',
+            'stock_quantity' => 'integer',
+            'reserved_quantity' => 'integer',
             'in_stock' => 'boolean',
             'sort_order' => 'integer',
         ];

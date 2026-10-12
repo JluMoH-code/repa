@@ -35,7 +35,7 @@
                                         $product = $line['product'];
                                         $image = $product->images->firstWhere('is_main', true) ?? $product->images->first();
                                     @endphp
-                                    <tr data-cart-line="{{ $product->id }}" class="border-b border-slate-100 last:border-0">
+                                    <tr data-cart-line="{{ $line['key'] }}" class="border-b border-slate-100 last:border-0">
                                         <td class="px-4 py-4">
                                             <div class="flex items-center gap-3">
                                                 <a href="{{ route('products.show', $product) }}" class="size-16 shrink-0 overflow-hidden rounded-lg bg-slate-50">
@@ -51,7 +51,7 @@
                                             </div>
                                         </td>
                                         <td class="whitespace-nowrap px-4 py-4 font-semibold text-accent-600">
-                                            {{ number_format($product->price / 100, 0, ',', ' ') }} ₽
+                                            {{ number_format($line['price'] / 100, 0, ',', ' ') }} ₽
                                         </td>
                                         <td class="px-4 py-4">
                                             <form
@@ -62,6 +62,7 @@
                                             >
                                                 @csrf
                                                 <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                                <input type="hidden" name="variant_id" value="{{ $line['variant']?->id }}">
                                                 <button
                                                     type="button"
                                                     data-qty-step="-1"
@@ -85,7 +86,7 @@
                                             </form>
                                         </td>
                                         <td class="whitespace-nowrap px-4 py-4 text-right font-semibold text-slate-900">
-                                            <span data-line-total data-product="{{ $product->id }}">
+                                            <span data-line-total data-product="{{ $line['key'] }}">
                                                 {{ number_format($line['line_total'] / 100, 0, ',', ' ') }} ₽
                                             </span>
                                         </td>
@@ -93,6 +94,7 @@
                                             <form method="POST" action="{{ route('cart.remove') }}" data-cart-action="remove">
                                                 @csrf
                                                 <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                                <input type="hidden" name="variant_id" value="{{ $line['variant']?->id }}">
                                                 <button
                                                     type="submit"
                                                     class="flex size-9 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
@@ -117,9 +119,9 @@
 
                     <dl class="mt-4 space-y-2 text-sm">
                         @foreach ($lines as $line)
-                            <div class="flex justify-between gap-3" data-summary-row data-product="{{ $line['product']->id }}">
+                            <div class="flex justify-between gap-3" data-summary-row data-product="{{ $line['key'] }}">
                                 <dt class="line-clamp-1 text-slate-500">
-                                    {{ $line['product']->name }} ×
+                                    {{ $line['product']->name }} {{ $line['variant']?->label }} ×
                                     <span data-summary-qty>{{ $line['quantity'] }}</span>
                                 </dt>
                                 <dd class="whitespace-nowrap font-medium text-slate-800" data-summary-total>
