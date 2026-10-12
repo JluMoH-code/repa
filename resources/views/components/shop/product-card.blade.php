@@ -4,37 +4,40 @@
     $image = $product->images->firstWhere('is_main', true) ?? $product->images->first();
     $variants = $product->relationLoaded('variants') ? $product->variants : collect();
     $hasVariants = $variants->isNotEmpty();
-    $firstVariant = $variants->first();
+    $firstVariant = $variants->first(fn ($variant) => $variant->hasAvailableStock()) ?? $variants->first();
     $basePrice = $hasVariants ? $firstVariant->price : $product->price;
-    $available = $hasVariants ? $variants->contains('in_stock', true) : $product->in_stock;
+    $available = $hasVariants ? $firstVariant->hasAvailableStock() : $product->hasAvailableStock();
     $isFavorite = app(\App\Actions\Favorites\FavoriteManager::class)->has($product->id);
-    $cartQuantity = app(\App\Actions\Cart\CartManager::class)->quantity($product->id);
+    $cartQuantity = app(\App\Actions\Cart\CartManager::class)->quantity($product->id, $firstVariant?->id);
 @endphp
 
 <div
     x-data="{
         price: {{ $basePrice }},
+        variantId: {{ $firstVariant?->id ?? 'null' }},
         available: {{ $available ? 'true' : 'false' }},
         inCart: {{ $cartQuantity }},
+        quantities: {{ Illuminate\Support\Js::from(app(\App\Actions\Cart\CartManager::class)->quantities()) }},
+        setQuantity(payload) { this.inCart = payload.quantity ?? 0; this.quantities[this.variantId ? {{ $product->id }} + ':' + this.variantId : {{ $product->id }}] = this.inCart; },
         increase() {
-            addToCart({{ $product->id }}, 1, (payload) => { this.inCart = payload.quantity; });
+            addToCart({{ $product->id }}, 1, (payload) => this.setQuantity(payload), this.variantId);
         },
         decrease() {
             if (this.inCart <= 1) {
-                removeFromCart({{ $product->id }}, (payload) => { this.inCart = payload.quantity ?? 0; });
+                removeFromCart({{ $product->id }}, (payload) => this.setQuantity(payload), this.variantId);
             } else {
-                updateCartQuantity({{ $product->id }}, this.inCart - 1, (payload) => { this.inCart = payload.quantity; });
+                updateCartQuantity({{ $product->id }}, this.inCart - 1, (payload) => this.setQuantity(payload), this.variantId);
             }
         },
         @if ($hasVariants)
         setVariant(id) {
-            const variants = {{ Illuminate\Support\Js::from($variants->map(fn ($v) => ['id' => $v->id, 'price' => $v->price, 'in_stock' => $v->in_stock])) }};
+            const variants = {{ Illuminate\Support\Js::from($variants->map(fn ($v) => ['id' => $v->id, 'price' => $v->price, 'in_stock' => $v->hasAvailableStock(), 'quantity' => app(\App\Actions\Cart\CartManager::class)->quantity($product->id, $v->id)])) }};
             const v = variants.find(v => v.id == id);
-            if (v) { this.price = v.price; this.available = v.in_stock; }
+            if (v) { this.variantId = v.id; this.price = v.price; this.available = v.in_stock; this.inCart = this.quantities[{{ $product->id }} + ':' + v.id] ?? 0; }
         },
         @endif
     }"
-    @cart-synced.window="inCart = $event.detail.quantities[{{ $product->id }}] ?? 0"
+    @cart-synced.window="quantities = $event.detail.quantities; inCart = quantities[variantId ? {{ $product->id }} + ':' + variantId : {{ $product->id }}] ?? 0"
     class="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md"
 >
     <a href="{{ route('products.show', $product) }}" class="relative mb-3 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-slate-50">
@@ -73,8 +76,8 @@
                 @change="setVariant($event.target.value)"
             >
                 @foreach ($variants as $variant)
-                    <option value="{{ $variant->id }}" @disabled(! $variant->in_stock)>
-                        {{ $variant->label }}{{ $variant->in_stock ? '' : ' (нет в наличии)' }}
+                    <option value="{{ $variant->id }}" @selected($variant->id === $firstVariant?->id) @disabled(! $variant->hasAvailableStock())>
+                        {{ $variant->label }}{{ $variant->hasAvailableStock() ? '' : ' (нет в наличии)' }}
                     </option>
                 @endforeach
             </select>

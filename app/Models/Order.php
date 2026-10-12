@@ -87,6 +87,10 @@ class Order extends Model
                 );
             }
 
+            if ($previous === OrderStatus::Shipped && ! in_array($current, [OrderStatus::Delivered, OrderStatus::Refunded], true)) {
+                throw new InvalidArgumentException('Отправленный заказ можно только завершить или оформить возврат.');
+            }
+
             if ($current === OrderStatus::New) {
                 throw new InvalidArgumentException(
                     'Нельзя вернуть заказ в статус «Новый».'

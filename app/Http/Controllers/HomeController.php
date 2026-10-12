@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Settings\SettingsManager;
+use App\Models\Banner;
 use App\Models\Category;
 use App\Models\Product;
 
@@ -35,12 +37,18 @@ class HomeController extends Controller
             ],
         ];
 
+        $configuredSlides = Banner::where('is_active', true)->orderBy('sort_order')->get();
+        if ($configuredSlides->isNotEmpty()) {
+            $slides = $configuredSlides->map(fn ($banner) => ['eyebrow' => 'Repa', 'title' => $banner->title, 'subtitle' => $banner->subtitle, 'image' => $banner->image, 'url' => $banner->url, 'theme' => 'brand'])->all();
+        }
+
         return view('storefront', [
             'categories' => $categories,
             'bestsellers' => $bestsellers,
             'newArrivals' => $newArrivals,
             'recommended' => $recommended,
             'slides' => $slides,
+            'homeIntro' => app(SettingsManager::class)->get('home_intro', ''),
         ]);
     }
 }

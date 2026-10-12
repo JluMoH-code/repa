@@ -3,16 +3,17 @@
 namespace App\Actions\Orders;
 
 use App\Actions\Cart\CartManager;
+use App\Actions\Inventory\InventoryManager;
 use App\Enums\OrderDeliveryMethod;
 use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Models\Cart;
 use App\Models\Order;
-use App\Models\Product;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -40,6 +41,7 @@ class OrderManager
     public function __construct(
         private readonly AuthFactory $auth,
         private readonly CartManager $cart,
+        private readonly InventoryManager $inventory,
     ) {}
 
     /**
@@ -62,9 +64,7 @@ class OrderManager
 
         $user = $this->auth->guard()->check() ? $this->auth->user() : null;
 
-        $lines = $user !== null
-            ? $this->dbLines($user)
-            : $this->sessionLines();
+        $lines = $this->cart->lines();
 
         if ($lines->isEmpty()) {
             throw new EmptyCartException('Корзина пуста — нельзя оформить заказ.');
@@ -73,7 +73,7 @@ class OrderManager
         // Повторная проверка доступности: пока покупатель заполнял форму,
         // товар могли снять с продажи или закончиться. Защита от заказа «в пустоту».
         foreach ($lines as $line) {
-            if (! $this->cart->isAvailable($line['product'])) {
+            if (! $this->cart->isAvailable($line['product'], $line['variant'])) {
                 throw new ProductUnavailableException(
                     'Товар «'.$line['product']->name.'» больше недоступен для заказа.'
                 );
@@ -105,11 +105,17 @@ class OrderManager
                 $lines->map(fn (array $line) => [
                     'product_id' => $line['product']->id,
                     'product_name' => $line['product']->name,
-                    'price' => $line['product']->price,
+                    'product_variant_id' => $line['variant']?->id,
+                    'variant_label' => $line['variant']?->label,
+                    'price' => $line['price'],
                     'quantity' => $line['quantity'],
                     'line_total' => $line['line_total'],
                 ])->all()
             );
+
+            foreach ($order->items()->orderBy('product_id')->orderBy('product_variant_id')->get() as $item) {
+                $this->inventory->reserve($item, $item->quantity);
+            }
 
             // Очищаем корзину — после транзакции, чтобы при исключении
             // корзина не пропала «в никуда». Делаем это ДО коммита транзакции
@@ -133,80 +139,52 @@ class OrderManager
      */
     public function changeStatus(Order $order, OrderStatus $newStatus): Order
     {
-        if ($order->status === $newStatus) {
-            return $order;
-        }
+        return DB::transaction(function () use ($order, $newStatus) {
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
+            if ($locked->status !== $newStatus) {
+                $locked->status = $newStatus;
+                $locked->save();
+                $this->inventory->settle($locked, $newStatus);
+            }
 
-        $order->status = $newStatus;
-        $order->save();
-
-        return $order;
+            return $order->refresh();
+        });
     }
 
-    /**
-     * @return Collection<int, array{product: Product, quantity: int, line_total: int}>
-     */
-    private function dbLines(User $user): Collection
+    /** Admin edits preserve the original price and change only the reservation delta. */
+    public function updateItemQuantities(Order $order, array $quantities): Order
     {
-        $rows = Cart::query()->where('user_id', $user->id)->get();
+        abort_unless(auth()->user()?->isAdmin() && ! auth()->user()->is_blocked, 403);
 
-        if ($rows->isEmpty()) {
-            return collect();
-        }
+        return DB::transaction(function () use ($order, $quantities) {
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
+            if (! $this->isEditableByCustomer($locked)) {
+                throw new RuntimeException('Состав отправленного или завершённого заказа нельзя изменить.');
+            }
+            $items = $locked->items()->orderBy('product_id')->orderBy('product_variant_id')->lockForUpdate()->get();
+            Validator::make(['quantities' => $quantities], ['quantities' => ['required', 'array'], 'quantities.*' => ['required', 'integer', 'min:1', 'max:99']])->validate();
+            foreach ($quantities as $id => $quantity) {
+                if (! $items->contains('id', (int) $id)) {
+                    throw ValidationException::withMessages(['quantities' => 'Позиция не принадлежит заказу.']);
+                }
+            }
+            foreach ($items as $item) {
+                if (! array_key_exists($item->id, $quantities)) {
+                    continue;
+                }
+                // Historical items without reservations keep legacy inventory semantics.
+                if ($item->reserved_quantity > 0) {
+                    $this->inventory->reserve($item, (int) $quantities[$item->id]);
+                }
+                $item->quantity = (int) $quantities[$item->id];
+                $item->line_total = $item->quantity * $item->price;
+                $item->save();
+            }
+            $subtotal = $locked->items()->sum('line_total');
+            $locked->update(['total' => $locked->total - $locked->subtotal + $subtotal, 'subtotal' => $subtotal]);
 
-        $products = Product::query()
-            ->with('images')
-            ->whereKey($rows->pluck('product_id'))
-            ->get()
-            ->keyBy('id');
-
-        return $rows
-            ->map(function (Cart $row) use ($products) {
-                $product = $products->get($row->product_id);
-
-                return $product === null
-                    ? null
-                    : [
-                        'product' => $product,
-                        'quantity' => $row->quantity,
-                        'line_total' => $product->price * $row->quantity,
-                    ];
-            })
-            ->filter()
-            ->values();
-    }
-
-    /**
-     * @return Collection<int, array{product: Product, quantity: int, line_total: int}>
-     */
-    private function sessionLines(): Collection
-    {
-        $quantities = $this->cart->quantities();
-
-        if ($quantities === []) {
-            return collect();
-        }
-
-        $products = Product::query()
-            ->with('images')
-            ->whereKey(array_keys($quantities))
-            ->get()
-            ->keyBy('id');
-
-        return collect($quantities)
-            ->map(function (int $quantity, int $productId) use ($products) {
-                $product = $products->get($productId);
-
-                return $product === null
-                    ? null
-                    : [
-                        'product' => $product,
-                        'quantity' => $quantity,
-                        'line_total' => $product->price * $quantity,
-                    ];
-            })
-            ->filter()
-            ->values();
+            return $order->refresh();
+        });
     }
 
     /**

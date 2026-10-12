@@ -3,10 +3,12 @@
 namespace App\Filament\Resources\Products\Tables;
 
 use App\Enums\ProductStatus;
+use App\Filament\Pages\Inventory;
 use App\Models\Category;
 use App\Models\FilterGroup;
 use App\Models\Product;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -28,6 +30,9 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->searchPlaceholder('Название, артикул или штрихкод')
+            ->emptyStateHeading('Здесь будут ваши товары')
+            ->emptyStateDescription('Добавьте первый товар: начните с названия, цены и фасовки. Остальное можно заполнить позже.')
             ->modifyQueryUsing(fn ($query) => $query->with(['category', 'manufacturer', 'images', 'variants', 'filterValues.group']))
             ->columns([
                 ImageColumn::make('main_image')
@@ -40,7 +45,7 @@ class ProductsTable
                 TextColumn::make('name')
                     ->label('Название')
                     ->searchable(['name', 'sku', 'barcode'])
-                    ->description(fn (Product $record) => $record->sku)
+                    ->description(fn (Product $record) => collect([$record->package_size, $record->manufacturer?->name, $record->sku ? 'Арт. '.$record->sku : null])->filter()->join(' · '))
                     ->wrap(),
                 TextColumn::make('category.name')
                     ->label('Категория')
@@ -56,17 +61,32 @@ class ProductsTable
                     ->state(fn (Product $record) => $record->variants->isEmpty()
                         ? '—'
                         : $record->variants->count().' (от '.number_format((int) $record->variants->min('price') / 100, 0, ',', ' ').' ₽)')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('filterValues.value')
                     ->label('Фильтры')
                     ->state(fn (Product $record) => $record->filterValues->pluck('value')->all())
                     ->badge()
                     ->limit(3)
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
-                    ->label('Статус')
+                    ->label('Публикация')
                     ->badge()
+                    ->description(fn (Product $record) => ! $record->is_active ? 'Скрыт в каталоге' : null)
                     ->sortable(),
+                TextColumn::make('stock_summary')
+                    ->label('Свободно на складе')
+                    ->state(function (Product $record): string {
+                        $stocks = $record->variants->isEmpty() ? collect([$record]) : $record->variants;
+                        if ($stocks->contains(fn ($stock) => $stock->stock_quantity === null)) {
+                            return 'Нужно пересчитать';
+                        }
+
+                        return $stocks->sum(fn ($stock) => $stock->availableQuantity()).' уп.';
+                    })
+                    ->description(fn (Product $record) => $record->variants->isEmpty() ? null : $record->variants->count().' фасовки')
+                    ->url(fn (Product $record) => Inventory::getUrl(['search' => $record->name])),
                 TextColumn::make('manufacturer.name')
                     ->label('Производитель')
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -104,28 +124,33 @@ class ProductsTable
                     ),
             ])
             ->recordActions([
-                EditAction::make(),
-                ReplicateAction::make()
-                    ->label('Дублировать')
-                    ->beforeReplicaSaved(function (Product $replica) {
-                        $replica->name = $replica->name.' (копия)';
-                        $replica->slug = null;
-                        $replica->sku = 'SKU-'.strtoupper(Str::random(8));
-                        $replica->barcode = null;
-                        $replica->status = ProductStatus::Draft;
-                    })
-                    ->after(function (Product $record, Product $replica) {
-                        foreach ($record->images as $image) {
-                            $replica->images()->create([
-                                'path' => $image->path,
-                                'sort_order' => $image->sort_order,
-                                'is_main' => $image->is_main,
-                            ]);
-                        }
-                    }),
-                DeleteAction::make()
-                    ->visible(fn (Product $record) => $record->isHardDeletable())
-                    ->tooltip('Жёсткое удаление доступно только для черновиков без изображений'),
+                EditAction::make()->label('Изменить')->icon('heroicon-o-pencil-square'),
+                ActionGroup::make([
+                    Action::make('inventory')->label('Открыть остатки')->icon('heroicon-o-cube')->url(fn (Product $record) => Inventory::getUrl(['search' => $record->name])),
+                    ReplicateAction::make()
+                        ->label('Дублировать')
+                        ->beforeReplicaSaved(function (Product $replica) {
+                            $replica->name = $replica->name.' (копия)';
+                            $replica->slug = null;
+                            $replica->sku = 'SKU-'.strtoupper(Str::random(8));
+                            $replica->barcode = null;
+                            $replica->status = ProductStatus::Draft;
+                            $replica->stock_quantity = null;
+                            $replica->reserved_quantity = 0;
+                        })
+                        ->after(function (Product $record, Product $replica) {
+                            foreach ($record->images as $image) {
+                                $replica->images()->create([
+                                    'path' => $image->path,
+                                    'sort_order' => $image->sort_order,
+                                    'is_main' => $image->is_main,
+                                ]);
+                            }
+                        }),
+                    DeleteAction::make()
+                        ->visible(fn (Product $record) => $record->isHardDeletable())
+                        ->tooltip('Жёсткое удаление доступно только для черновиков без изображений'),
+                ])->label('Ещё')->icon('heroicon-o-ellipsis-horizontal'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -16,9 +16,13 @@
                 </div>
 
                 <div class="mt-2 flex items-center gap-3 text-sm text-slate-500">
-                    <span>Артикул: {{ $product->sku }}</span>
+                    @if($product->sku)
+                        <span>Артикул: {{ $product->sku }}</span>
+                    @endif
                     @if($product->manufacturer)
-                        <span class="text-slate-300">•</span>
+                        @if($product->sku)
+                            <span class="text-slate-300">•</span>
+                        @endif
                         <span>Производитель: {{ $product->manufacturer->name }}</span>
                     @endif
                 </div>
@@ -37,11 +41,17 @@
                     </dl>
                 </div>
 
+                <p class="mt-3 text-sm text-slate-500">
+                    Возврат семян, купленных онлайн, возможен в течение 7 дней после получения
+                    при сохранении товарного вида и потребительских свойств. Сохраните упаковку.
+                    При обнаружении недостатков свяжитесь с магазином.
+                </p>
+
                 <div class="mt-6 flex items-center justify-between gap-4">
                     {{-- Слева: цена, количество, кнопка «В корзину» --}}
                     <div class="flex min-w-0 flex-wrap items-center gap-4">
                         {{-- Цена в рублях (делим на 100, т.к. храним в копейках) --}}
-                        <span class="text-3xl font-bold text-accent-600">
+                        <span class="text-3xl font-bold text-accent-600" x-data="{ price: {{ ($product->variants->first(fn ($v) => $v->hasAvailableStock()) ?? $product->variants->first())?->price ?? $product->price }} }" @variant-price.window="price = $event.detail" x-text="new Intl.NumberFormat('ru-RU').format(Math.round(price / 100)) + ' ₽'">
                             {{ number_format($product->price / 100, 0, ',', ' ') }} ₽
                         </span>
                         @if ($product->old_price)
@@ -51,34 +61,54 @@
                         @endif
 
                     @php
-                        $available = $product->variants->isNotEmpty()
-                            ? $product->variants->contains('in_stock', true)
-                            : $product->in_stock;
-                        $cartQuantity = app(\App\Actions\Cart\CartManager::class)->quantity($product->id);
+                        $firstVariant = $product->variants->first(fn ($variant) => $variant->hasAvailableStock()) ?? $product->variants->first();
+                        $available = $firstVariant ? $firstVariant->hasAvailableStock() : $product->hasAvailableStock();
+                        $cartQuantity = app(\App\Actions\Cart\CartManager::class)->quantity($product->id, $firstVariant?->id);
                         $isFavorite = app(\App\Actions\Favorites\FavoriteManager::class)->has($product->id);
                     @endphp
 
                     <div
                         x-data="{
                             qty: 1,
+                            variantId: {{ $firstVariant?->id ?? 'null' }},
+                            available: {{ $available ? 'true' : 'false' }},
+                            quantities: {{ Illuminate\Support\Js::from(app(\App\Actions\Cart\CartManager::class)->quantities()) }},
                             inCart: {{ $cartQuantity }},
+                            setQuantity(payload) {
+                                this.inCart = payload.quantity ?? 0;
+                                this.quantities[this.variantId ? {{ $product->id }} + ':' + this.variantId : {{ $product->id }}] = this.inCart;
+                            },
+                            setVariant(id) {
+                                const variants = {{ Illuminate\Support\Js::from($product->variants->map(fn ($v) => ['id' => $v->id, 'price' => $v->price, 'available' => $v->hasAvailableStock()])) }};
+                                const variant = variants.find(v => v.id == id);
+                                if (!variant) return;
+                                this.variantId = variant.id;
+                                this.available = variant.available;
+                                this.inCart = this.quantities[{{ $product->id }} + ':' + variant.id] ?? 0;
+                                this.$dispatch('variant-price', variant.price);
+                            },
                             buy() {
-                                addToCart({{ $product->id }}, this.qty, (payload) => { this.inCart = payload.quantity; });
+                                addToCart({{ $product->id }}, this.qty, (payload) => this.setQuantity(payload), this.variantId);
                             },
                             increase() {
-                                addToCart({{ $product->id }}, 1, (payload) => { this.inCart = payload.quantity; });
+                                addToCart({{ $product->id }}, 1, (payload) => this.setQuantity(payload), this.variantId);
                             },
                             decrease() {
                                 if (this.inCart <= 1) {
-                                    removeFromCart({{ $product->id }}, (payload) => { this.inCart = payload.quantity ?? 0; });
+                                    removeFromCart({{ $product->id }}, (payload) => this.setQuantity(payload), this.variantId);
                                 } else {
-                                    updateCartQuantity({{ $product->id }}, this.inCart - 1, (payload) => { this.inCart = payload.quantity; });
+                                    updateCartQuantity({{ $product->id }}, this.inCart - 1, (payload) => this.setQuantity(payload), this.variantId);
                                 }
                             },
                         }"
-                        @cart-synced.window="inCart = $event.detail.quantities[{{ $product->id }}] ?? 0"
+                        @cart-synced.window="quantities = $event.detail.quantities; inCart = quantities[variantId ? {{ $product->id }} + ':' + variantId : {{ $product->id }}] ?? 0"
                         class="flex flex-wrap items-center gap-3"
                     >
+                        @if ($product->variants->isNotEmpty())
+                            <label class="text-sm">Фасовка <select class="rounded-md border border-slate-300 px-3 py-2" @change="setVariant($event.target.value)">
+                                @foreach ($product->variants as $variant)<option value="{{ $variant->id }}" @selected($variant->id === $firstVariant?->id) @disabled(! $variant->hasAvailableStock())>{{ $variant->label }}{{ $variant->hasAvailableStock() ? '' : ' (нет в наличии)' }}</option>@endforeach
+                            </select></label>
+                        @endif
                         @if ($available)
                             {{-- Товара нет в корзине: выбор количества + кнопка «В корзину» --}}
                             <template x-if="! inCart">

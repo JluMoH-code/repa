@@ -27,12 +27,9 @@
             <div class="lg:col-span-1">
                 <h3 class="mb-3 font-semibold text-slate-900">Покупателям</h3>
                 <ul class="space-y-2 text-sm text-slate-600">
-                    <li><a href="#" class="hover:text-brand-700">О магазине</a></li>
-                    <li><a href="#" class="hover:text-brand-700">Публикации</a></li>
-                    <li><a href="#" class="hover:text-brand-700">Ассортимент</a></li>
-                    <li><a href="#" class="hover:text-brand-700">Обмен/Возврат</a></li>
-                    <li><a href="#" class="hover:text-brand-700">Контакты</a></li>
-                </ul>
+                    <li><a href="{{ route('articles.index') }}" class="hover:text-brand-700">Статьи</a></li>
+                    <li><a href="{{ route('storefront') }}" class="hover:text-brand-700">Каталог</a></li>
+                    @foreach(\App\Models\MenuLink::publicLinks('footer') as $menuLink)<li><a href="{{ $menuLink->url }}" class="hover:text-brand-700">{{ $menuLink->label }}</a></li>@endforeach                </ul>
             </div>
 
             <!-- Контакты -->

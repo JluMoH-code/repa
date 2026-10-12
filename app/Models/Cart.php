@@ -18,7 +18,7 @@ class Cart extends Model
 
     protected $fillable = [
         'user_id',
-        'product_id',
+        'product_id', 'product_variant_id',
         'quantity',
     ];
 
@@ -32,6 +32,9 @@ class Cart extends Model
     protected static function booted(): void
     {
         static::saving(function (self $item) {
+            if ($item->product_variant_id !== null && ! ProductVariant::where('product_id', $item->product_id)->whereKey($item->product_variant_id)->exists()) {
+                throw new InvalidArgumentException('Вариант не принадлежит товару.');
+            }
             if ($item->quantity < 1) {
                 throw new InvalidArgumentException('Количество товара в корзине не может быть меньше 1.');
             }

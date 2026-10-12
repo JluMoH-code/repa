@@ -30,16 +30,24 @@ class Orders extends Page
 
     protected static ?string $navigationLabel = 'Заказы';
 
+    protected static ?string $title = 'Заказы';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Магазин';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
 
     public string $search = '';
 
     public ?string $statusFilter = null;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isAdmin() === true && ! auth()->user()->is_blocked;
+    }
+
     public function mount(): void
     {
+        abort_unless(static::canAccess(), 403);
         $this->statusFilter = $this->statusFilter ?? OrderStatus::New->value;
     }
 
@@ -58,6 +66,7 @@ class Orders extends Page
      */
     public function changeStatus(int $orderId, string $status): void
     {
+        abort_unless(static::canAccess(), 403);
         $order = Order::findOrFail($orderId);
         $newStatus = OrderStatus::tryFrom($status);
 
@@ -83,6 +92,8 @@ class Orders extends Page
      */
     public function orders(): LengthAwarePaginator
     {
+        abort_unless(static::canAccess(), 403);
+
         return Order::query()
             ->with('items')
             ->withCount('items')
@@ -104,5 +115,24 @@ class Orders extends Page
     public function getStatuses(): array
     {
         return OrderStatus::cases();
+    }
+
+    public function statusCounts(): array
+    {
+        abort_unless(static::canAccess(), 403);
+
+        return Order::query()->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status')->all();
+    }
+
+    public function availableStatuses(Order $order): array
+    {
+        if ($order->status->isFinal()) {
+            return [$order->status];
+        }
+        if ($order->status === OrderStatus::Shipped) {
+            return [OrderStatus::Shipped, OrderStatus::Delivered, OrderStatus::Refunded];
+        }
+
+        return array_values(array_filter(OrderStatus::cases(), fn (OrderStatus $status) => $status !== OrderStatus::New || $order->status === OrderStatus::New));
     }
 }

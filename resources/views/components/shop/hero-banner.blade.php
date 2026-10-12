@@ -21,10 +21,12 @@
                 class="absolute inset-0 flex items-center justify-between px-8 md:px-12 {{ $slideBackgrounds[$slide['theme'] ?? 'brand'] }}"
                 style="{{ $index === 0 ? '' : 'display: none;' }}"
             >
-                <div class="max-w-md text-white">
+                @if(!empty($slide['image']))<img src="{{ $slide['image'] }}" alt="" class="absolute inset-0 size-full object-cover"><div class="absolute inset-0 bg-black/50"></div>@endif
+                <div class="relative max-w-md text-white">
                     <p class="text-sm font-medium uppercase tracking-wide text-white/80">{{ $slide['eyebrow'] }}</p>
                     <h2 class="mt-1 text-2xl font-bold md:text-3xl">{{ $slide['title'] }}</h2>
                     <p class="mt-2 text-sm text-white/90 md:text-base">{{ $slide['subtitle'] }}</p>
+                    @if(!empty($slide['url']))<a class="mt-4 inline-block rounded bg-white px-4 py-2 font-semibold text-brand-700" href="{{ $slide['url'] }}">Подробнее</a>@endif
                 </div>
             </div>
         @endforeach

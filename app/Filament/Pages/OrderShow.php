@@ -25,6 +25,13 @@ class OrderShow extends Page
 
     public string $newStatus = '';
 
+    public array $itemQuantities = [];
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isAdmin() && ! auth()->user()->is_blocked;
+    }
+
     /**
      * Страница открывается только по ссылке из списка заказов.
      */
@@ -45,6 +52,7 @@ class OrderShow extends Page
 
     public function mount(string $order): void
     {
+        abort_unless(static::canAccess(), 403);
         $orderModel = Order::query()->with('items')->where('number', $order)->first();
 
         if ($orderModel === null) {
@@ -53,10 +61,12 @@ class OrderShow extends Page
 
         $this->order = $orderModel;
         $this->newStatus = $orderModel->status->value;
+        $this->itemQuantities = $orderModel->items->pluck('quantity', 'id')->all();
     }
 
     public function saveStatus(): void
     {
+        abort_unless(static::canAccess(), 403);
         $newStatus = OrderStatus::tryFrom($this->newStatus);
 
         if ($newStatus === null) {
@@ -80,8 +90,16 @@ class OrderShow extends Page
         }
     }
 
+    public function saveQuantities(): void
+    {
+        abort_unless(static::canAccess(), 403);
+        app(OrderManager::class)->updateItemQuantities($this->order, $this->itemQuantities);
+        $this->order->refresh();
+        Notification::make()->title('Состав заказа обновлён')->success()->send();
+    }
+
     public function getStatuses(): array
     {
-        return OrderStatus::cases();
+        return app(Orders::class)->availableStatuses($this->order);
     }
 }

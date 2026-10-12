@@ -16,6 +16,8 @@ use Filament\Tables\Table;
 
 class ManufacturerResource extends Resource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = Manufacturer::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;

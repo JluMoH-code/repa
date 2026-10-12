@@ -16,4 +16,14 @@ class EditCategory extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    public function getHeading(): string
+    {
+        return 'Редактирование категории';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Категория объединяет похожие товары. Название и расположение можно изменить здесь.';
+    }
 }

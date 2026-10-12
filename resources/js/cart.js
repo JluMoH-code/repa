@@ -86,8 +86,8 @@ function toast(message, type = 'success') {
  *   добавления с ответом сервера (содержит `quantity` — количество товара в корзине)
  * @returns {Promise<boolean>}
  */
-async function addToCart(productId, quantity = 1, onSuccess = null) {
-    const { ok, payload } = await cartRequest('/cart/add', { product_id: productId, quantity });
+async function addToCart(productId, quantity = 1, onSuccess = null, variantId = null) {
+    const { ok, payload } = await cartRequest('/cart/add', { product_id: productId, quantity, variant_id: variantId });
 
     if (ok && payload.success) {
         updateCartCounter(payload.count);
@@ -109,8 +109,8 @@ async function addToCart(productId, quantity = 1, onSuccess = null) {
 /**
  * Изменить количество позиции в корзине (для stepper'а на карточках/странице товара).
  */
-async function updateCartQuantity(productId, quantity, onSuccess = null) {
-    const { ok, payload } = await cartRequest('/cart/update', { product_id: productId, quantity });
+async function updateCartQuantity(productId, quantity, onSuccess = null, variantId = null) {
+    const { ok, payload } = await cartRequest('/cart/update', { product_id: productId, quantity, variant_id: variantId });
 
     if (ok && payload.success) {
         updateCartCounter(payload.count);
@@ -127,8 +127,8 @@ async function updateCartQuantity(productId, quantity, onSuccess = null) {
 /**
  * Удалить товар из корзины (для stepper'а на карточках/странице товара).
  */
-async function removeFromCart(productId, onSuccess = null) {
-    const { ok, payload } = await cartRequest('/cart/remove', { product_id: productId });
+async function removeFromCart(productId, onSuccess = null, variantId = null) {
+    const { ok, payload } = await cartRequest('/cart/remove', { product_id: productId, variant_id: variantId });
 
     if (ok && payload.success) {
         updateCartCounter(payload.count);
@@ -238,11 +238,12 @@ function initCartPage() {
             return;
         }
 
-        updateTotals(payload, data.product_id, data.quantity ? parseInt(data.quantity, 10) : null);
+        updateTotals(payload, data.variant_id ? `${data.product_id}:${data.variant_id}` : data.product_id, data.quantity ? parseInt(data.quantity, 10) : null);
 
         if (form.dataset.cartAction === 'remove') {
             form.closest('[data-cart-line]')?.remove();
-            root.querySelector(`[data-summary-row][data-product="${data.product_id}"]`)?.remove();
+            const lineKey = data.variant_id ? `${data.product_id}:${data.variant_id}` : data.product_id;
+            root.querySelector(`[data-summary-row][data-product="${lineKey}"]`)?.remove();
         }
 
         if (payload.count === 0) {

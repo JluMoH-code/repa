@@ -10,7 +10,7 @@
             </div>
         </div>
 
-        <div class="mt-10 space-y-10">
+        <div class="mt-10 space-y-10">@if($homeIntro ?? null)<p class="whitespace-pre-line text-lg text-slate-600">{{ $homeIntro }}</p>@endif
             <x-shop.product-carousel title="Хиты продаж" :products="$bestsellers" />
             <x-shop.product-carousel title="Новинки" :products="$newArrivals" />
             <x-shop.product-carousel title="Рекомендуем" :products="$recommended" />

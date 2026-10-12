@@ -15,7 +15,7 @@ enum GrowingPlace: string implements HasLabel
         return match ($this) {
             self::OpenGround => 'Открытый грунт',
             self::Greenhouse => 'Теплица',
-            self::Universal => 'Универсально',
+            self::Universal => 'Теплица и открытый грунт',
         };
     }
 }

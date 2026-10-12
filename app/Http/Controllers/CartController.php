@@ -6,10 +6,12 @@ use App\Actions\Cart\CartManager;
 use App\Models\Cart;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -43,6 +45,7 @@ class CartController extends Controller
         try {
             $data = $request->validate([
                 'product_id' => ['required', 'integer', 'exists:products,id'],
+                'variant_id' => ['nullable', 'integer', Rule::exists('product_variants', 'id')->where('product_id', $request->input('product_id'))],
                 'quantity' => ['nullable', 'integer', 'min:1', 'max:'.Cart::MAX_QUANTITY],
             ], $this->messages());
         } catch (ValidationException $e) {
@@ -50,19 +53,24 @@ class CartController extends Controller
         }
 
         $product = Product::findOrFail($data['product_id']);
+        $variant = $this->cart->resolveVariant($product, isset($data['variant_id']) ? ProductVariant::findOrFail($data['variant_id']) : null);
 
-        if (! $this->cart->isAvailable($product)) {
+        if (! $this->cart->isAvailable($product, $variant)) {
             return $this->respond($request, false, 'Товар недоступен для заказа.', 422);
         }
 
-        $this->cart->add($product, $data['quantity'] ?? 1);
+        try {
+            $this->cart->add($product, $data['quantity'] ?? 1, $variant);
+        } catch (ValidationException $e) {
+            return $this->validationError($request, $e);
+        }
 
         return $this->respond(
             $request,
             true,
             'Товар добавлен в корзину.',
-            lineTotal: $product->price * ($data['quantity'] ?? 1),
-            quantity: $this->cart->quantity($product->id),
+            lineTotal: ($variant?->price ?? $product->price) * ($data['quantity'] ?? 1),
+            quantity: $this->cart->quantity($product->id, $variant?->id),
         );
     }
 
@@ -74,6 +82,7 @@ class CartController extends Controller
         try {
             $data = $request->validate([
                 'product_id' => ['required', 'integer', 'exists:products,id'],
+                'variant_id' => ['nullable', 'integer', Rule::exists('product_variants', 'id')->where('product_id', $request->input('product_id'))],
                 'quantity' => ['required', 'integer', 'min:1', 'max:'.Cart::MAX_QUANTITY],
             ], $this->messages());
         } catch (ValidationException $e) {
@@ -81,19 +90,25 @@ class CartController extends Controller
         }
 
         $product = Product::findOrFail($data['product_id']);
+        $this->cart->lines();
+        $variant = $this->cart->resolveVariant($product, isset($data['variant_id']) ? ProductVariant::findOrFail($data['variant_id']) : null);
 
-        if (! $this->cart->contains($product)) {
+        if (! $this->cart->contains($product, $variant?->id)) {
             return $this->respond($request, false, 'Товара нет в корзине.', 404);
         }
 
-        $this->cart->updateQuantity($product, $data['quantity']);
+        try {
+            $this->cart->updateQuantity($product, $data['quantity'], $variant);
+        } catch (ValidationException $e) {
+            return $this->validationError($request, $e);
+        }
 
         return $this->respond(
             $request,
             true,
             'Количество обновлено.',
-            lineTotal: $product->price * $data['quantity'],
-            quantity: $this->cart->quantity($product->id),
+            lineTotal: ($variant?->price ?? $product->price) * $data['quantity'],
+            quantity: $this->cart->quantity($product->id, $variant?->id),
         );
     }
 
@@ -105,22 +120,26 @@ class CartController extends Controller
         try {
             $data = $request->validate([
                 'product_id' => ['required', 'integer', 'exists:products,id'],
+                'variant_id' => ['nullable', 'integer', Rule::exists('product_variants', 'id')->where('product_id', $request->input('product_id'))],
             ], $this->messages());
         } catch (ValidationException $e) {
             return $this->validationError($request, $e);
         }
 
-        if (! $this->cart->contains(Product::findOrFail($data['product_id']))) {
+        $this->cart->lines();
+        $product = Product::findOrFail($data['product_id']);
+        $variant = $this->cart->resolveVariant($product, isset($data['variant_id']) ? ProductVariant::findOrFail($data['variant_id']) : null);
+        if (! $this->cart->contains($product, $variant?->id)) {
             return $this->respond($request, false, 'Товара нет в корзине.', 404);
         }
 
-        $this->cart->remove($data['product_id']);
+        $this->cart->remove($data['product_id'], $variant?->id);
 
         return $this->respond(
             $request,
             true,
             'Товар удалён из корзины.',
-            quantity: $this->cart->quantity($data['product_id']),
+            quantity: $this->cart->quantity($data['product_id'], $variant?->id),
         );
     }
 
@@ -141,6 +160,8 @@ class CartController extends Controller
      */
     public function quantities(): JsonResponse
     {
+        $this->cart->lines();
+
         return response()->json([
             'quantities' => $this->cart->quantities(),
             'count' => $this->cart->count(),

@@ -16,6 +16,8 @@ use Filament\Tables\Table;
 
 class FilterGroupResource extends Resource
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $model = FilterGroup::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsHorizontal;

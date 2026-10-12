@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\FilterGroups\Tables;
 
+use App\Filament\Resources\FilterGroups\FilterGroupResource;
 use App\Models\Category;
 use App\Models\FilterGroup;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -23,7 +25,9 @@ class FilterGroupsTable
             )
             ->columns([
                 TextColumn::make('name')
-                    ->label('Название')
+                    ->label('Фильтр')
+                    ->weight('semibold')
+                    ->description(fn (FilterGroup $record) => $record->values->take(3)->pluck('value')->join(', ') ?: 'Добавьте варианты выбора')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('category.name')
@@ -33,11 +37,12 @@ class FilterGroupsTable
                     ->label('Slug')
                     ->toggleable(),
                 TextColumn::make('values_count')
-                    ->label('Значений')
+                    ->label('Вариантов')
                     ->counts('values')
                     ->sortable(),
                 TextColumn::make('sort_order')
-                    ->label('Порядок')
+                    ->label('Позиция')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('updated_at')
@@ -46,7 +51,11 @@ class FilterGroupsTable
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('updated_at', 'desc')
+            ->defaultSort('sort_order')
+            ->recordUrl(fn (FilterGroup $record) => FilterGroupResource::getUrl('edit', ['record' => $record]))
+            ->emptyStateHeading('Добавьте первый фильтр')
+            ->emptyStateDescription('Например, фильтр «Цвет» поможет выбрать семена по цвету плодов. Добавьте варианты и назначьте их товарам.')
+            ->searchPlaceholder('Найти фильтр')
             ->filters([
                 SelectFilter::make('category_id')
                     ->label('Категория')
@@ -57,9 +66,9 @@ class FilterGroupsTable
                         ->pluck('name', 'id')),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make()
-                    ->tooltip('Удаление группы удалит её значения и снимет их с товаров'),
+                EditAction::make()->label('Изменить')->icon('heroicon-o-pencil-square'),
+                ActionGroup::make([DeleteAction::make()
+                    ->tooltip('Удаление группы удалит её значения и снимет их с товаров')])->icon('heroicon-o-ellipsis-horizontal')->label('Другие действия'),
             ])
             ->toolbarActions([
                 //
