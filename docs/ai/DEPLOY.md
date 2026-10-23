@@ -31,7 +31,7 @@
 
 ## Сервер
 
-- Сервер: `77.91.113.161` (SSH 22, пользователь `deploy` для CI/CD).
+- Сервер: `77.91.72.251` (SSH 22, пользователь `deploy` для CI/CD).
 - Каталог: `/srv/repa` (принадлежит `deploy`, git pull делает `deploy`).
 - Пользователь `deploy` (в группе `docker`), ключ `~deploy/.ssh/deploy_key` с
   forced command: `command="/usr/local/bin/deploy-wrapper.sh",...` — ключ умеет
@@ -68,10 +68,10 @@
 ## Деплой вручную
 
 ```bash
-ssh root@77.91.113.161
+ssh root@77.91.72.251
 cd /srv/repa && bash scripts/deploy.sh main
 # или через deploy-пользователя:
-ssh -i ~/.ssh/repa_deploy_key deploy@77.91.113.161 "deploy main"
+ssh -i ~/.ssh/repa_deploy_key deploy@77.91.72.251 "deploy main"
 ```
 
 ## Откат
